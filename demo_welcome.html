@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ยินดีต้อนรับ - ระบบจัดการอพาร์ตเมนต์ (Demo Version)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+          :root {
+            --g1: #0a1628;
+            --g2: #1a2d50;
+            --g3: #274472;
+            --g4: #3a6098;
+            --g5: #5b8ec2;
+            --g6: #93b8d9;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Prompt', sans-serif; background: #050f1e; color: white; overflow-x: hidden; }
+
+        /* NAVBAR */
+        .navbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 50px; height: 70px; background: rgba(10, 22, 40, 0.8);
+            backdrop-filter: blur(10px); transition: 0.4s;
+        }
+        .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: white; font-weight: 700; }
+        .nav-logo .logo-circle { width: 38px; height: 38px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .nav-links { display: flex; align-items: center; gap: 6px; }
+        .nav-links a { color: rgba(255,255,255,0.7); text-decoration: none; padding: 8px 18px; border-radius: 8px; font-size: 14px; transition: 0.3s; }
+        .nav-links a:hover, .nav-links a.active { color: white; background: rgba(255,255,255,0.1); }
+
+        /* HERO */
+        .hero { position: relative; width: 100%; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; }
+        .hero-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(180deg, #050f1e 0%, #1a2d50 50%, #5b8ec2 100%);
+        }
+        .stars { position: absolute; top: 0; left: 0; width: 100%; height: 60%; }
+        .star { position: absolute; background: white; border-radius: 50%; animation: twinkle 3s infinite alternate; }
+        @keyframes twinkle { 0% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        .hero-content { position: relative; z-index: 10; max-width: 800px; padding: 0 20px; }
+        .hero-title { font-size: 64px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; }
+        .hero-title span { color: #81c784; }
+        .hero-desc { font-size: 18px; color: rgba(255,255,255,0.8); margin-bottom: 40px; font-weight: 300; }
+
+        .btn-hero {
+            display: inline-flex; align-items: center; gap: 10px; padding: 18px 40px;
+            background: linear-gradient(135deg, var(--g4), var(--g3)); color: white;
+            text-decoration: none; border-radius: 50px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.3); transition: 0.3s;
+        }
+        .btn-hero:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.5); }
+
+        /* STATS */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+            max-width: 1000px; margin: -100px auto 100px; position: relative; z-index: 20; padding: 0 20px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1);
+            padding: 40px 20px; border-radius: 24px; text-align: center; transition: 0.4s;
+        }
+        .stat-card:hover { transform: translateY(-10px); background: rgba(255,255,255,0.1); }
+        .stat-icon { font-size: 40px; margin-bottom: 15px; }
+        .stat-value { font-size: 36px; font-weight: 800; color: #81c784; }
+        .stat-label { font-size: 14px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* FOOTER */
+        .footer { padding: 40px; text-align: center; opacity: 0.4; font-size: 13px; }
+
+        @media (max-width: 768px) {
+            .hero-title { font-size: 40px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); margin-top: 50px; }
+            .navbar { padding: 0 20px; }
+            .nav-logo span { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="#" class="nav-logo">
+            <div class="logo-circle">🏠</div>
+            <span>Apartment System</span>
+        </a>
+        <div class="nav-links">
+            <a href="#" class="active">หน้าแรก</a>
+            <a href="#">ข้อมูลผู้เช่า</a>
+            <a href="#">การชำระเงิน</a>
+            <a href="#">เวอร์ชัน Demo</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-bg"></div>
+        <div class="stars" id="starField"></div>
+        
+        <div class="hero-content">
+            <div style="background: rgba(255,255,255,0.1); display: inline-block; padding: 8px 16px; border-radius: 30px; font-size: 12px; margin-bottom: 20px;">✨ ใช้งานได้จากทุกที่ทั่วโลก (Demo)</div>
+            <h1 class="hero-title">ระบบจัดการอพาร์ตเมนต์ <br><span>ยุคใหม่</span> ที่ใครก็ใช้ได้</h1>
+            <p class="hero-desc">จัดการข้อมูลผู้เช่า สัญญา และการชำระเงินให้เป็นเรื่องง่าย <br> ด้วยดีไซน์ที่สวยงามและรองรับมือถือ 100%</p>
+            <a href="#" class="btn-hero">เริ่มต้นใช้งานได้เลย →</a>
+        </div>
+    </section>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value">2,540</div>
+            <div class="stat-label">ผู้เช่าทั้งหมด</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🏢</div>
+            <div class="stat-value">120</div>
+            <div class="stat-label">ห้องว่างพร้อมเช่า</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📄</div>
+            <div class="stat-value">5,800</div>
+            <div class="stat-label">สัญญาเช่า</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-value">98%</div>
+            <div class="stat-label">ยอดชำระสำเร็จ</div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        © 2026 ระบบจัดการอพาร์ตเมนต์ (Demo Version) - สร้างสรรค์เพื่อความสะดวกสบายของคุณ
+    </footer>
+
+    <script>
+        // สร้างดวงดาวแบบสุ่ม
+        const starField = document.getElementById('starField');
+        for (let i = 0; i < 150; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            const x = Math.random() * 100;
+            const y = Math.random() * 100;
+            const size = Math.random() * 2 + 1;
+            const delay = Math.random() * 5;
+            star.style.left = x + '%';
+            star.style.top = y + '%';
+            star.style.width = size + 'px';
+            star.style.height = size + 'px';
+            star.style.animationDelay = delay + 's';
+            starField.appendChild(star);
+        }
+    </script>
+</body>
+</html>

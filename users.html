@@ -1,0 +1,153 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+require_once 'config.php';
+// require_once 'auth.php'; // Uncomment to enforce login
+// requireAdmin(); // Uncomment to enforce admin only
+?>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>จัดการผู้ใช้งานระบบ</title>
+<style>
+:root{--g1:#0a1628;--g2:#1a2d50;--g3:#274472;--g4:#3a6098}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(135deg,var(--g1),var(--g2),var(--g3));min-height:100vh;padding-bottom:80px}
+.hd{background:rgba(0,0,0,.2);color:#fff;padding:20px;text-align:center}
+.hd h2{margin:0;display:flex;align-items:center;justify-content:center;gap:10px}
+.wrap{display:flex;gap:25px;max-width:1100px;margin:30px auto;padding:0 15px;flex-wrap:wrap;justify-content:center}
+.box{flex:1;min-width:380px;max-width:520px;background:#fff;padding:30px;border-radius:16px;box-shadow:0 15px 40px rgba(0,0,0,.25)}
+.box h3{color:var(--g2);text-align:center;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid var(--g4);display:flex;align-items:center;justify-content:center;gap:8px}
+label{display:block;margin-top:14px;font-weight:600;color:#333;font-size:13px}
+input,select{width:100%;padding:12px;margin-top:6px;border:2px solid #e0e0e0;border-radius:10px;font-size:14px;transition:all 0.3s}
+input:focus,select:focus{outline:none;border-color:var(--g3);box-shadow:0 0 0 3px rgba(39,68,114,.15)}
+button{margin-top:20px;width:100%;padding:14px;background:linear-gradient(135deg,var(--g3),var(--g2));color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 5px 15px rgba(26,45,80,.4);transition:all 0.3s}
+button:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(26,45,80,.5)}
+.msg{padding:12px;border-radius:10px;text-align:center;margin-bottom:15px}
+.msg.success{background:var(--g3);color:#fff}
+.msg.error{background:#e53935;color:#fff}
+.hist{max-width:900px;margin:25px auto;padding:0 15px}
+.hist .box{max-width:100%;min-width:auto}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{padding:12px;text-align:center;border:1px solid #bdc3c7}
+th{background:var(--g2);color:#fff;font-weight:600;font-size:14px}
+td{color:#333;font-size:14px}
+tr:nth-child(even){background:#f8fafc}
+tr:hover td{background:#e3f2fd;color:var(--g2);cursor:default}
+.role-badge{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;color:#fff}
+.role-admin{background:#d32f2f}
+.role-staff{background:#1976d2}
+
+/* Navigation Bar */
+.nav-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,0.98);padding:12px 20px;box-shadow:0 -4px 20px rgba(0,0,0,0.15);display:flex;justify-content:center;align-items:center;gap:15px;z-index:1000}
+.nav-btn{display:flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;transition:all 0.3s;border:none;cursor:pointer}
+.nav-btn.prev{background:linear-gradient(135deg,#78909c,#546e7a);color:#fff}
+.nav-btn.prev:hover{transform:translateX(-5px);box-shadow:0 4px 15px rgba(84,110,122,0.4)}
+.nav-btn.home{background:linear-gradient(135deg,var(--g3),var(--g2));color:#fff}
+.nav-btn.home:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(26,45,80,0.5)}
+.nav-btn.next{background:linear-gradient(135deg,#42a5f5,#1e88e5);color:#fff}
+.nav-btn.next:hover{transform:translateX(5px);box-shadow:0 4px 15px rgba(30,136,229,0.4)}
+.nav-info{text-align:center;color:#666;font-size:12px}
+.nav-info strong{color:var(--g2)}
+</style>
+</head>
+<body>
+
+<div class="hd">
+    <h2>👤 จัดการผู้ใช้งาน (Admin/Staff)</h2>
+</div>
+
+<div class="wrap">
+    <div class="box">
+        <h3>➕ เพิ่มผู้ใช้งานใหม่</h3>
+        
+        <?php
+        if(isset($_POST['save_user'])){
+            $username = $_POST['username'];
+            $password = $_POST['password'];
+            $fullname = $_POST['fullname'];
+            $role = $_POST['role'];
+            
+            // Hash password before saving
+            $hashed_pwd = password_hash($password, PASSWORD_DEFAULT);
+
+            $check = mysqli_query($conn, "SELECT * FROM users WHERE username = '$username'");
+            if(mysqli_num_rows($check) > 0){
+                echo "<div class='msg error'>❌ ชื่อผู้ใช้งานนี้มีอยู่ในระบบแล้ว</div>";
+            } else {
+                $sql = "INSERT INTO users (username, password, fullname, role) 
+                        VALUES ('$username', '$hashed_pwd', '$fullname', '$role')";
+                
+                if(mysqli_query($conn, $sql)){
+                    echo "<div class='msg success'>✅ เพิ่มผู้ใช้งานสำเร็จ</div>";
+                } else {
+                    echo "<div class='msg error'>❌ Error: " . mysqli_error($conn) . "</div>";
+                }
+            }
+        }
+        ?>
+        
+        <form method="post">
+            <label>ชื่อผู้ใช้งาน (User ID / Username)</label>
+            <input type="text" name="username" placeholder="ภาษาอังกฤษ ตัวเลข (เช่น admin, staff01)" pattern="[A-Za-z0-9_]+" title="เฉพาะตัวอักษรภาษาอังกฤษ ตัวเลข หรือ _" required>
+            
+            <label>รหัสผ่าน</label>
+            <input type="password" name="password" placeholder="ตั้งรหัสผ่าน" minlength="4" required>
+            
+            <label>ชื่อ-นามสกุล</label>
+            <input type="text" name="fullname" placeholder="ชื่อจริง นามสกุล" required>
+            
+            <label>ระดับสิทธิ์ (Role)</label>
+            <select name="role">
+                <option value="staff">เจ้าหน้าที่ (Staff)</option>
+                <option value="admin">ผู้ดูแลระบบ (Admin)</option>
+            </select>
+            
+            <button type="submit" name="save_user">💾 เพิ่มผู้ใช้งาน</button>
+        </form>
+    </div>
+</div>
+
+<div class="hist">
+    <div class="box">
+        <h3>📋 รายชื่อผู้ใช้งานทั้งหมด</h3>
+        <table>
+            <tr>
+                <th>Username</th>
+                <th>ชื่อ-นามสกุล</th>
+                <th>สิทธิ์</th>
+                <th>วันที่สร้าง</th>
+            </tr>
+            <?php
+            $res = mysqli_query($conn, "SELECT * FROM users ORDER BY created_at DESC");
+            if(mysqli_num_rows($res) > 0){
+                while($row = mysqli_fetch_assoc($res)){
+                    $roleBadge = ($row['role'] == 'admin') ? 'role-admin' : 'role-staff';
+                    echo "<tr>";
+                    echo "<td>".$row['username']."</td>";
+                    echo "<td>".$row['fullname']."</td>";
+                    echo "<td><span class='role-badge ".$roleBadge."'>".ucfirst($row['role'])."</span></td>";
+                    echo "<td>".date('d/m/Y H:i', strtotime($row['created_at']))."</td>";
+                    echo "</tr>";
+                }
+            } else {
+                echo "<tr><td colspan='4' style='color:#888;'>ไม่พบข้อมูลผู้ใช้งาน</td></tr>";
+            }
+            ?>
+        </table>
+    </div>
+</div>
+
+<!-- Navigation Bar -->
+<div class="nav-bar">
+    <a href="index.php" class="nav-btn prev">🏡 หน้าหลัก</a>
+    <div class="nav-info">
+        <strong>Users</strong><br>
+        <small>ผู้ใช้งาน</small>
+    </div>
+    <a href="room.php" class="nav-btn next">ห้องพัก ➡️</a>
+</div>
+
+</body>
+</html>

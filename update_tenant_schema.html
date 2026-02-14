@@ -1,0 +1,50 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+include("config.php");
+
+echo "<h2>Updating tenant table schema...</h2>";
+
+// Add id_card column
+$sql1 = "ALTER TABLE tenant ADD COLUMN id_card VARCHAR(20) NOT NULL AFTER name";
+if (mysqli_query($conn, $sql1)) {
+    echo "<p style='color:green;'>✓ Added id_card column successfully.</p>";
+} else {
+    if (strpos(mysqli_error($conn), 'Duplicate column') !== false) {
+        echo "<p style='color:orange;'>⚠ id_card column already exists.</p>";
+    } else {
+        echo "<p style='color:red;'>✗ Error adding id_card: " . mysqli_error($conn) . "</p>";
+    }
+}
+
+// Add room_type column
+$sql2 = "ALTER TABLE tenant ADD COLUMN room_type VARCHAR(20) NOT NULL AFTER room_no";
+if (mysqli_query($conn, $sql2)) {
+    echo "<p style='color:green;'>✓ Added room_type column successfully.</p>";
+} else {
+    if (strpos(mysqli_error($conn), 'Duplicate column') !== false) {
+        echo "<p style='color:orange;'>⚠ room_type column already exists.</p>";
+    } else {
+        echo "<p style='color:red;'>✗ Error adding room_type: " . mysqli_error($conn) . "</p>";
+    }
+}
+
+echo "<hr>";
+echo "<p>Schema update completed. <a href='tenant.php'>Go to Tenant Page</a></p>";
+
+// Show current table structure
+$result = mysqli_query($conn, "DESCRIBE tenant");
+echo "<h3>Current tenant table structure:</h3>";
+echo "<table border='1' style='border-collapse:collapse;'>";
+echo "<tr><th>Field</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th></tr>";
+while ($row = mysqli_fetch_assoc($result)) {
+    echo "<tr>";
+    echo "<td>" . $row['Field'] . "</td>";
+    echo "<td>" . $row['Type'] . "</td>";
+    echo "<td>" . $row['Null'] . "</td>";
+    echo "<td>" . $row['Key'] . "</td>";
+    echo "<td>" . $row['Default'] . "</td>";
+    echo "</tr>";
+}
+echo "</table>";
+?>

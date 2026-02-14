@@ -1,0 +1,26 @@
+<?php include("config.php"); ?>
+<h3>สัญญาเช่า</h3>
+
+<form method="post">
+รหัสผู้เช่า: <input name="tenant_id"><br>
+วันเริ่ม: <input type="date" name="start_date"><br>
+วันสิ้นสุด: <input type="date" name="end_date"><br>
+ค่าเช่า: <input name="rent"><br>
+<input type="submit" name="save">
+</form>
+
+<?php
+if(isset($_POST['save'])){
+mysqli_query($conn,
+"INSERT INTO contract VALUES(
+NULL,'$_POST[tenant_id]',
+'$_POST[start_date]','$_POST[end_date]',
+'$_POST[rent]')");
+}
+
+$result=mysqli_query($conn,"SELECT * FROM contract");
+while($row=mysqli_fetch_assoc($result)){
+echo "ผู้เช่า ".$row['tenant_id']." ค่าเช่า ".$row['rent']."<br>";
+}
+?>
+<a href="index.php">กลับ</a>

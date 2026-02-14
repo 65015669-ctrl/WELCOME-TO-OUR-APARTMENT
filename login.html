@@ -1,0 +1,483 @@
+<?php
+session_start();
+
+// ถ้า login แล้วให้ไปหน้าหลัก
+if(isset($_SESSION['user_id'])) {
+    header("Location: index.php");
+    exit();
+}
+
+// รับข้อความ error จาก URL
+$error = isset($_GET['error']) ? $_GET['error'] : '';
+?>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เข้าสู่ระบบ - ระบบจัดการห้องเช่า</title>
+    <meta name="description" content="เข้าสู่ระบบจัดการห้องเช่าอพาร์ตเมนต์">
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --g1: #0a1628;
+            --g2: #1a2d50;
+            --g3: #274472;
+            --g4: #3a6098;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Prompt', 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, var(--g1), var(--g2), var(--g3));
+            min-height: 100vh;
+        }
+
+        /* ===== Navbar ===== */
+        .navbar {
+            background: rgba(0,0,0,0.25);
+            backdrop-filter: blur(10px);
+            padding: 0 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .navbar-brand .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .navbar-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .navbar-links a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .navbar-links a:hover {
+            background: rgba(255,255,255,0.15);
+            color: white;
+        }
+
+        .navbar-links a.active {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-weight: 600;
+        }
+
+        .navbar-avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--g4), var(--g3));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        /* ===== Main ===== */
+        .main-content {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 50px 20px 60px;
+            min-height: calc(100vh - 64px);
+        }
+
+        /* ===== Login Card ===== */
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 440px;
+            overflow: hidden;
+            animation: cardSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes cardSlideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, var(--g1), var(--g2), var(--g3));
+            padding: 36px 32px 28px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-header::after {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            left: -10%;
+            width: 120%;
+            height: 60px;
+            background: white;
+            border-radius: 50% 50% 0 0;
+        }
+
+        .header-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 72px;
+            height: 72px;
+            background: rgba(255,255,255,0.18);
+            border-radius: 20px;
+            margin-bottom: 14px;
+            font-size: 32px;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.25);
+            animation: iconFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes iconFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        .card-header h1 {
+            color: white;
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-header p {
+            color: rgba(255,255,255,0.85);
+            font-size: 13px;
+            font-weight: 300;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-body {
+            padding: 20px 32px 32px;
+        }
+
+        /* Alert */
+        .alert {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-bottom: 22px;
+            font-size: 14px;
+            animation: alertPop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes alertPop {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 7px;
+        }
+
+        .form-label .icon {
+            font-size: 15px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 13px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            color: #1f2937;
+            background: #f9fafb;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        .form-input::placeholder {
+            color: #9ca3af;
+            font-weight: 300;
+        }
+
+        .form-input:hover {
+            border-color: #d1d5db;
+            background: white;
+        }
+
+        .form-input:focus {
+            border-color: var(--g3);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(39,68,114,0.1);
+        }
+
+        /* Password wrapper */
+        .password-wrapper {
+            position: relative;
+        }
+
+        .password-wrapper .form-input {
+            padding-right: 46px;
+        }
+
+        .btn-eye {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            color: #9ca3af;
+            padding: 4px;
+            line-height: 1;
+            transition: color 0.3s;
+            border-radius: 6px;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-eye:hover {
+            color: var(--g3);
+            background: rgba(39,68,114,0.08);
+        }
+
+        /* Submit */
+        .btn-submit {
+            width: 100%;
+            padding: 15px 24px;
+            background: linear-gradient(135deg, var(--g3), var(--g2));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: inherit;
+            margin-top: 6px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(26,45,80,0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-submit::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(26,45,80,0.45);
+        }
+
+        .btn-submit:hover::before {
+            left: 100%;
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        /* Divider */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 24px 0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        .divider span {
+            font-size: 13px;
+            color: #9ca3af;
+        }
+
+        /* Register Link */
+        .register-link {
+            text-align: center;
+        }
+
+        .register-link a {
+            color: var(--g2);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .register-link a:hover {
+            color: var(--g1);
+            text-decoration: underline;
+        }
+
+        .card-footer {
+            text-align: center;
+            padding: 0 32px 20px;
+            color: #9ca3af;
+            font-size: 11px;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .navbar { padding: 0 16px; }
+            .navbar-brand span { display: none; }
+            .navbar-links a { padding: 8px 12px; font-size: 13px; }
+            .main-content { padding: 24px 12px 40px; }
+            .card-header { padding: 28px 20px 24px; }
+            .card-body { padding: 16px 20px 24px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== Navbar ===== -->
+<nav class="navbar">
+    <a href="login.php" class="navbar-brand">
+        <div class="logo-icon">🏠</div>
+        <span>Apartment</span>
+    </a>
+    <div class="navbar-links">
+        <a href="login.php" class="active">Login</a>
+        <a href="register.php">Register</a>
+        <a href="share.php" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">📱 Mobile</a>
+        <div class="navbar-avatar">👤</div>
+    </div>
+</nav>
+
+<!-- ===== Main ===== -->
+<div class="main-content">
+    <div class="login-card">
+        <div class="card-header">
+            <div class="header-icon">🔐</div>
+            <h1>เข้าสู่ระบบ</h1>
+            <p>ระบบจัดการห้องเช่าอพาร์ตเมนต์</p>
+        </div>
+
+        <div class="card-body">
+            <?php if($error == 'invalid'): ?>
+            <div class="alert alert-error">
+                ❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง
+            </div>
+            <?php elseif($error == 'empty'): ?>
+            <div class="alert alert-error">
+                ⚠️ กรุณากรอกข้อมูลให้ครบถ้วน
+            </div>
+            <?php endif; ?>
+
+            <form action="check_login.php" method="POST">
+                <div class="form-group">
+                    <label class="form-label"><span class="icon">👤</span> Username</label>
+                    <input type="text" name="username" class="form-input" placeholder="กรอกชื่อผู้ใช้" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label"><span class="icon">🔒</span> Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" name="password" id="password" class="form-input" placeholder="กรอกรหัสผ่าน" required>
+                        <button type="button" class="btn-eye" onclick="togglePwd('password', this)">👁</button>
+                    </div>
+                </div>
+                <button type="submit" class="btn-submit">
+                    <span>🔐</span>
+                    <span>เข้าสู่ระบบ</span>
+                </button>
+            </form>
+
+            <div class="divider"><span>ยังไม่มีบัญชี?</span></div>
+
+            <div class="register-link">
+                <a href="register.php">📝 สมัครสมาชิก</a>
+            </div>
+        </div>
+
+        <div class="card-footer">
+            <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 10px;">
+                
+            <div style="margin-top: 15px;">© 2026 ระบบจัดการห้องเช่าอพาร์ตเมนต์</div>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePwd(id, btn) {
+    const el = document.getElementById(id);
+    if (el.type === 'password') { el.type = 'text'; btn.textContent = '🙈'; }
+    else { el.type = 'password'; btn.textContent = '👁'; }
+}
+</script>
+
+</body>
+</html>

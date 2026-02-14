@@ -1,0 +1,836 @@
+<?php
+session_start();
+require_once 'config.php';
+
+// ถ้า login แล้วให้ไปหน้าหลัก
+if(isset($_SESSION['user_id'])) {
+    header("Location: index.php");
+    exit();
+}
+
+$error = '';
+$success = '';
+
+// เพิ่มคอลัมน์ email ถ้ายังไม่มี
+$check_col = mysqli_query($conn, "SHOW COLUMNS FROM users LIKE 'email'");
+if(mysqli_num_rows($check_col) == 0) {
+    mysqli_query($conn, "ALTER TABLE users ADD COLUMN email VARCHAR(150) DEFAULT NULL AFTER fullname");
+}
+
+// ถ้ามีการส่งฟอร์ม
+if($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $fullname = trim($_POST['fullname'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
+
+    // ตรวจสอบข้อมูล
+    if(empty($username) || empty($password) || empty($confirm_password) || empty($fullname)) {
+        $error = 'กรุณากรอกข้อมูลให้ครบถ้วน';
+    } elseif(strlen($username) < 4) {
+        $error = 'ชื่อผู้ใช้ต้องมีอย่างน้อย 4 ตัวอักษร';
+    } elseif(!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'รูปแบบ E-mail ไม่ถูกต้อง';
+    } elseif(strlen($password) < 6) {
+        $error = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
+    } elseif($password !== $confirm_password) {
+        $error = 'รหัสผ่านไม่ตรงกัน กรุณากรอกใหม่';
+    } else {
+        // ตรวจสอบว่า username ซ้ำหรือไม่
+        $check_username = mysqli_real_escape_string($conn, $username);
+        $sql_check = "SELECT user_id FROM users WHERE username = '$check_username'";
+        $result_check = mysqli_query($conn, $sql_check);
+
+        if(mysqli_num_rows($result_check) > 0) {
+            $error = 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว กรุณาเลือกชื่อผู้ใช้อื่น';
+        } else {
+            // เข้ารหัสรหัสผ่าน
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            $safe_fullname = mysqli_real_escape_string($conn, $fullname);
+            $safe_email = mysqli_real_escape_string($conn, $email);
+
+            // บันทึกข้อมูลลงฐานข้อมูล
+            $sql_insert = "INSERT INTO users (username, password, fullname, email, role) VALUES ('$check_username', '$hashed_password', '$safe_fullname', '$safe_email', 'user')";
+
+            if(mysqli_query($conn, $sql_insert)) {
+                $success = 'สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ';
+            } else {
+                $error = 'เกิดข้อผิดพลาดในการสมัครสมาชิก กรุณาลองใหม่อีกครั้ง';
+            }
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สมัครสมาชิก - ระบบจัดการห้องเช่า</title>
+    <meta name="description" content="สมัครสมาชิกเพื่อเข้าใช้งานระบบจัดการห้องเช่าอพาร์ตเมนต์">
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --g1: #0a1628;
+            --g2: #1a2d50;
+            --g3: #274472;
+            --g4: #3a6098;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Prompt', 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, var(--g1), var(--g2), var(--g3));
+            min-height: 100vh;
+        }
+
+        /* ===== Navbar ===== */
+        .navbar {
+            background: rgba(0,0,0,0.25);
+            backdrop-filter: blur(10px);
+            padding: 0 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .navbar-brand .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .navbar-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .navbar-links a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .navbar-links a:hover {
+            background: rgba(255,255,255,0.15);
+            color: white;
+        }
+
+        .navbar-links a.active {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-weight: 600;
+        }
+
+        .navbar-avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--g4), var(--g3));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        /* ===== Main Content ===== */
+        .main-content {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 20px 60px;
+            min-height: calc(100vh - 64px);
+        }
+
+        /* ===== Register Card ===== */
+        .register-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 480px;
+            overflow: hidden;
+            animation: cardSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes cardSlideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Card Header */
+        .card-header {
+            background: linear-gradient(135deg, var(--g1), var(--g2), var(--g3));
+            padding: 36px 32px 28px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-header::after {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            left: -10%;
+            width: 120%;
+            height: 60px;
+            background: white;
+            border-radius: 50% 50% 0 0;
+        }
+
+        .header-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 72px;
+            height: 72px;
+            background: rgba(255,255,255,0.18);
+            border-radius: 20px;
+            margin-bottom: 14px;
+            font-size: 32px;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.25);
+            animation: iconFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes iconFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        .card-header h1 {
+            color: white;
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-header p {
+            color: rgba(255,255,255,0.85);
+            font-size: 13px;
+            font-weight: 300;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Card Body */
+        .card-body {
+            padding: 20px 32px 32px;
+        }
+
+        /* ===== Alert Messages ===== */
+        .alert {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-bottom: 22px;
+            font-size: 14px;
+            animation: alertPop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes alertPop {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .alert-success {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        /* ===== Form ===== */
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 7px;
+        }
+
+        .form-label .icon {
+            font-size: 15px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 13px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            color: #1f2937;
+            background: #f9fafb;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        .form-input::placeholder {
+            color: #9ca3af;
+            font-weight: 300;
+        }
+
+        .form-input:hover {
+            border-color: #d1d5db;
+            background: white;
+        }
+
+        .form-input:focus {
+            border-color: var(--g3);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(39,68,114,0.1);
+        }
+
+        .form-input.is-valid {
+            border-color: #10b981;
+        }
+
+        .form-input.is-invalid {
+            border-color: #ef4444;
+        }
+
+        .input-hint {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 5px;
+        }
+
+        .input-hint.error { color: #ef4444; }
+        .input-hint.success { color: #10b981; }
+
+        /* Password wrapper */
+        .password-wrapper {
+            position: relative;
+        }
+
+        .password-wrapper .form-input {
+            padding-right: 46px;
+        }
+
+        .btn-eye {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            color: #9ca3af;
+            padding: 4px;
+            line-height: 1;
+            transition: color 0.3s;
+            border-radius: 6px;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-eye:hover {
+            color: var(--g3);
+            background: rgba(39,68,114,0.08);
+        }
+
+        /* Password Strength */
+        .strength-meter {
+            display: flex;
+            gap: 3px;
+            margin-top: 8px;
+        }
+
+        .strength-bar {
+            height: 4px;
+            flex: 1;
+            border-radius: 4px;
+            background: #e5e7eb;
+            transition: background 0.4s;
+        }
+
+        .strength-bar.s1 { background: #ef4444; }
+        .strength-bar.s2 { background: #f59e0b; }
+        .strength-bar.s3 { background: #3b82f6; }
+        .strength-bar.s4 { background: #10b981; }
+
+        .strength-label {
+            font-size: 11px;
+            margin-top: 4px;
+            font-weight: 500;
+        }
+
+        .strength-label.s1 { color: #ef4444; }
+        .strength-label.s2 { color: #f59e0b; }
+        .strength-label.s3 { color: #3b82f6; }
+        .strength-label.s4 { color: #10b981; }
+
+        /* ===== Submit Button ===== */
+        .btn-submit {
+            width: 100%;
+            padding: 15px 24px;
+            background: linear-gradient(135deg, var(--g3), var(--g2));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: inherit;
+            margin-top: 6px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(26,45,80,0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-submit::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(26,45,80,0.45);
+        }
+
+        .btn-submit:hover::before {
+            left: 100%;
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        /* ===== Divider ===== */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 24px 0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        .divider span {
+            font-size: 13px;
+            color: #9ca3af;
+        }
+
+        /* ===== Login Link ===== */
+        .login-link {
+            text-align: center;
+        }
+
+        .login-link a {
+            color: var(--g2);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .login-link a:hover {
+            color: var(--g1);
+            text-decoration: underline;
+        }
+
+        /* Card Footer */
+        .card-footer {
+            text-align: center;
+            padding: 0 32px 20px;
+            color: #9ca3af;
+            font-size: 11px;
+        }
+
+        /* ===== Success State ===== */
+        .success-body {
+            text-align: center;
+            padding: 40px 32px;
+        }
+
+        .success-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-radius: 50%;
+            font-size: 32px;
+            color: white;
+            margin-bottom: 18px;
+            animation: popIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); }
+            60% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
+        .success-body h2 {
+            color: #1f2937;
+            font-size: 22px;
+            margin-bottom: 6px;
+        }
+
+        .success-body p {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .btn-go-login {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 30px;
+            background: linear-gradient(135deg, var(--g3), var(--g2));
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(26,45,80,0.35);
+        }
+
+        .btn-go-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(26,45,80,0.45);
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 600px) {
+            .navbar { padding: 0 16px; }
+            .navbar-brand span { display: none; }
+            .navbar-links a { padding: 8px 12px; font-size: 13px; }
+            .main-content { padding: 24px 12px 40px; }
+            .card-header { padding: 28px 20px 24px; }
+            .card-body { padding: 16px 20px 24px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== Navbar ===== -->
+<nav class="navbar">
+    <a href="login.php" class="navbar-brand">
+        <div class="logo-icon">🏠</div>
+        <span>ระบบจัดการห้องเช่า</span>
+    </a>
+    <div class="navbar-links">
+        <a href="login.php">หน้าหลัก</a>
+        <a href="register.php" class="active">สมัครสมาชิก</a>
+        <div class="navbar-avatar">👤</div>
+    </div>
+</nav>
+
+<!-- ===== Main ===== -->
+<div class="main-content">
+    <div class="register-card">
+
+        <?php if(!empty($success)): ?>
+        <!-- ===== Success ===== -->
+        <div class="card-header">
+            <div class="header-icon">✅</div>
+            <h1>สำเร็จ!</h1>
+            <p>การสมัครสมาชิกเสร็จสมบูรณ์</p>
+        </div>
+        <div class="success-body">
+            <div class="success-icon">🎉</div>
+            <h2>ยินดีต้อนรับ!</h2>
+            <p><?php echo htmlspecialchars($success); ?></p>
+            <a href="login.php" class="btn-go-login">🔐 เข้าสู่ระบบเลย</a>
+        </div>
+
+        <?php else: ?>
+        <!-- ===== Register Form ===== -->
+        <div class="card-header">
+            <div class="header-icon">📝</div>
+            <h1>Member</h1>
+            <p>สมัครสมาชิกเข้าใช้งานระบบ</p>
+        </div>
+
+        <div class="card-body">
+            <?php if(!empty($error)): ?>
+            <div class="alert alert-error">
+                ⚠️ <?php echo htmlspecialchars($error); ?>
+            </div>
+            <?php endif; ?>
+
+            <form action="register.php" method="POST" id="registerForm" novalidate>
+                <!-- ชื่อ-สกุล -->
+                <div class="form-group">
+                    <label class="form-label"><span class="icon">👤</span> ชื่อ-สกุล</label>
+                    <input type="text" name="fullname" id="fullname" class="form-input"
+                           placeholder="กรอกชื่อ-นามสกุล"
+                           value="<?php echo htmlspecialchars($_POST['fullname'] ?? ''); ?>" required>
+                    <div class="input-hint" id="fullnameHint">กรอกชื่อจริงและนามสกุล</div>
+                </div>
+
+                <!-- E-mail -->
+                <div class="form-group">
+                    <label class="form-label"><span class="icon">📧</span> E-mail</label>
+                    <input type="email" name="email" id="email" class="form-input"
+                           placeholder="example@email.com"
+                           value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
+                    <div class="input-hint" id="emailHint">อีเมลสำหรับติดต่อ (ไม่บังคับ)</div>
+                </div>
+
+                <!-- Username -->
+                <div class="form-group">
+                    <label class="form-label"><span class="icon">🆔</span> Username</label>
+                    <input type="text" name="username" id="username" class="form-input"
+                           placeholder="กรอกชื่อผู้ใช้ (อย่างน้อย 4 ตัวอักษร)"
+                           value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>" required>
+                    <div class="input-hint" id="usernameHint">ใช้ตัวอักษรภาษาอังกฤษและตัวเลข</div>
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <label class="form-label"><span class="icon">🔒</span> Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" name="password" id="password" class="form-input"
+                               placeholder="กรอกรหัสผ่าน (อย่างน้อย 6 ตัวอักษร)" required>
+                        <button type="button" class="btn-eye" onclick="togglePwd('password', this)">👁</button>
+                    </div>
+                    <div class="strength-meter" id="strengthMeter" style="display:none">
+                        <div class="strength-bar" id="bar1"></div>
+                        <div class="strength-bar" id="bar2"></div>
+                        <div class="strength-bar" id="bar3"></div>
+                        <div class="strength-bar" id="bar4"></div>
+                    </div>
+                    <div class="strength-label" id="strengthLabel"></div>
+                </div>
+
+                <!-- Confirm Password -->
+                <div class="form-group">
+                    <label class="form-label"><span class="icon">🔐</span> ยืนยันรหัสผ่าน</label>
+                    <div class="password-wrapper">
+                        <input type="password" name="confirm_password" id="confirm_password" class="form-input"
+                               placeholder="กรอกรหัสผ่านอีกครั้ง" required>
+                        <button type="button" class="btn-eye" onclick="togglePwd('confirm_password', this)">👁</button>
+                    </div>
+                    <div class="input-hint" id="confirmHint">กรอกรหัสผ่านให้ตรงกัน</div>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" class="btn-submit" id="btnSubmit">
+                    <span>📝</span>
+                    <span>Submit</span>
+                </button>
+            </form>
+
+            <div class="divider"><span>มีบัญชีอยู่แล้ว?</span></div>
+
+            <div class="login-link">
+                <a href="login.php">🔐 เข้าสู่ระบบ</a>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <div class="card-footer">© 2026 ระบบจัดการห้องเช่าอพาร์ตเมนต์</div>
+    </div>
+</div>
+
+<script>
+// Toggle Password
+function togglePwd(id, btn) {
+    const el = document.getElementById(id);
+    if (el.type === 'password') { el.type = 'text'; btn.textContent = '🙈'; }
+    else { el.type = 'password'; btn.textContent = '👁'; }
+}
+
+// Real-time validation
+const fullname = document.getElementById('fullname');
+const email = document.getElementById('email');
+const username = document.getElementById('username');
+const password = document.getElementById('password');
+const confirm_password = document.getElementById('confirm_password');
+
+if (fullname) {
+    fullname.addEventListener('input', function() {
+        const hint = document.getElementById('fullnameHint');
+        if (this.value.trim().length >= 2) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+            hint.textContent = '✓ ถูกต้อง';
+            hint.className = 'input-hint success';
+        } else if (this.value.length > 0) {
+            this.classList.remove('is-valid');
+            this.classList.add('is-invalid');
+            hint.textContent = 'กรุณากรอกชื่อ-สกุลให้ครบ';
+            hint.className = 'input-hint error';
+        } else {
+            this.classList.remove('is-valid','is-invalid');
+            hint.textContent = 'กรอกชื่อจริงและนามสกุล';
+            hint.className = 'input-hint';
+        }
+    });
+
+    email.addEventListener('input', function() {
+        const hint = document.getElementById('emailHint');
+        if (this.value.length === 0) {
+            this.classList.remove('is-valid','is-invalid');
+            hint.textContent = 'อีเมลสำหรับติดต่อ (ไม่บังคับ)';
+            hint.className = 'input-hint';
+        } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.value)) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+            hint.textContent = '✓ รูปแบบอีเมลถูกต้อง';
+            hint.className = 'input-hint success';
+        } else {
+            this.classList.remove('is-valid');
+            this.classList.add('is-invalid');
+            hint.textContent = 'กรุณากรอกอีเมลให้ถูกต้อง';
+            hint.className = 'input-hint error';
+        }
+    });
+
+    username.addEventListener('input', function() {
+        const hint = document.getElementById('usernameHint');
+        if (this.value.length >= 4) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+            hint.textContent = '✓ ชื่อผู้ใช้ถูกต้อง';
+            hint.className = 'input-hint success';
+        } else if (this.value.length > 0) {
+            this.classList.remove('is-valid');
+            this.classList.add('is-invalid');
+            hint.textContent = 'ต้องมีอย่างน้อย 4 ตัวอักษร (เหลืออีก ' + (4 - this.value.length) + ')';
+            hint.className = 'input-hint error';
+        } else {
+            this.classList.remove('is-valid','is-invalid');
+            hint.textContent = 'ใช้ตัวอักษรภาษาอังกฤษและตัวเลข';
+            hint.className = 'input-hint';
+        }
+    });
+
+    password.addEventListener('input', function() {
+        const meter = document.getElementById('strengthMeter');
+        const label = document.getElementById('strengthLabel');
+        const bars = [document.getElementById('bar1'), document.getElementById('bar2'),
+                      document.getElementById('bar3'), document.getElementById('bar4')];
+
+        if (this.value.length === 0) { meter.style.display = 'none'; label.textContent = ''; return; }
+        meter.style.display = 'flex';
+
+        let s = 0;
+        if (this.value.length >= 6) s++;
+        if (this.value.length >= 8) s++;
+        if (/[a-z]/.test(this.value) && /[A-Z]/.test(this.value)) s++;
+        if (/\d/.test(this.value)) s++;
+        if (/[^a-zA-Z0-9]/.test(this.value)) s++;
+
+        let level = Math.min(4, Math.max(1, Math.ceil(s * 4 / 5)));
+        if (this.value.length < 6) level = 1;
+
+        const labels = ['','อ่อน','พอใช้','ดี','แข็งแกร่ง'];
+        const cls = ['','s1','s2','s3','s4'];
+
+        bars.forEach((b, i) => {
+            b.className = 'strength-bar';
+            if (i < level) b.classList.add(cls[level]);
+        });
+        label.textContent = '🔐 ความแข็งแกร่ง: ' + labels[level];
+        label.className = 'strength-label ' + cls[level];
+
+        if (confirm_password.value.length > 0) checkMatch();
+    });
+
+    confirm_password.addEventListener('input', checkMatch);
+
+    function checkMatch() {
+        const hint = document.getElementById('confirmHint');
+        if (confirm_password.value.length === 0) {
+            confirm_password.classList.remove('is-valid','is-invalid');
+            hint.textContent = 'กรอกรหัสผ่านให้ตรงกัน';
+            hint.className = 'input-hint';
+            return;
+        }
+        if (confirm_password.value === password.value && password.value.length >= 6) {
+            confirm_password.classList.remove('is-invalid');
+            confirm_password.classList.add('is-valid');
+            hint.textContent = '✓ รหัสผ่านตรงกัน';
+            hint.className = 'input-hint success';
+        } else {
+            confirm_password.classList.remove('is-valid');
+            confirm_password.classList.add('is-invalid');
+            hint.textContent = '✗ รหัสผ่านไม่ตรงกัน';
+            hint.className = 'input-hint error';
+        }
+    }
+
+    document.getElementById('registerForm').addEventListener('submit', function(e) {
+        let err = false;
+        if (fullname.value.trim().length < 2) { fullname.classList.add('is-invalid'); err = true; }
+        if (username.value.length < 4) { username.classList.add('is-invalid'); err = true; }
+        if (password.value.length < 6) { password.classList.add('is-invalid'); err = true; }
+        if (confirm_password.value !== password.value) { confirm_password.classList.add('is-invalid'); err = true; }
+        if (err) e.preventDefault();
+    });
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,30 @@
+<?php
+/**
+ * ไฟล์นี้ใช้สำหรับ reset รหัสผ่าน admin
+ * เปิดครั้งเดียวแล้วลบทิ้ง
+ */
+require_once 'config.php';
+
+$newPassword = 'admin123';
+$hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+
+// อัปเดตรหัสผ่านของ admin
+$sql = "UPDATE users SET password = '$hashedPassword' WHERE username = 'admin'";
+$result = mysqli_query($conn, $sql);
+
+if ($result && mysqli_affected_rows($conn) > 0) {
+    echo "<h2 style='color:#1a2d50;font-family:Prompt,sans-serif;text-align:center;margin-top:50px;'>✅ รีเซ็ตรหัสผ่าน admin สำเร็จ!</h2>";
+    echo "<p style='text-align:center;font-family:Prompt,sans-serif;'>Username: <b>admin</b><br>Password: <b>admin123</b></p>";
+    echo "<p style='text-align:center;font-family:Prompt,sans-serif;color:red;'>⚠️ กรุณาลบไฟล์ reset_admin.php หลังใช้งาน</p>";
+    echo "<p style='text-align:center;'><a href='login.php' style='color:#1a2d50;font-family:Prompt;'>→ ไปหน้า Login</a></p>";
+} else {
+    // ถ้าไม่มี user admin ให้สร้างใหม่
+    $sql2 = "INSERT INTO users (username, password, fullname, role) VALUES ('admin', '$hashedPassword', 'ผู้ดูแลระบบ', 'admin') 
+             ON DUPLICATE KEY UPDATE password = '$hashedPassword'";
+    mysqli_query($conn, $sql2);
+    echo "<h2 style='color:#1a2d50;font-family:Prompt,sans-serif;text-align:center;margin-top:50px;'>✅ สร้าง/รีเซ็ต admin สำเร็จ!</h2>";
+    echo "<p style='text-align:center;font-family:Prompt,sans-serif;'>Username: <b>admin</b><br>Password: <b>admin123</b></p>";
+    echo "<p style='text-align:center;font-family:Prompt,sans-serif;color:red;'>⚠️ กรุณาลบไฟล์ reset_admin.php หลังใช้งาน</p>";
+    echo "<p style='text-align:center;'><a href='login.php' style='color:#1a2d50;font-family:Prompt;'>→ ไปหน้า Login</a></p>";
+}
+?>

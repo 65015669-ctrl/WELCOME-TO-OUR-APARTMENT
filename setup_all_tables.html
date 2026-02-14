@@ -1,0 +1,94 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+include("config.php");
+
+echo "<h2>🔧 Updating Database Schema...</h2>";
+
+// 1. Users Table
+$sql_users = "CREATE TABLE IF NOT EXISTS `users` (
+  `user_id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL UNIQUE,
+  `password` varchar(255) NOT NULL,
+  `fullname` varchar(100) NOT NULL,
+  `role` enum('admin','staff') NOT NULL DEFAULT 'staff',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+
+if (mysqli_query($conn, $sql_users)) {
+    echo "<p style='color:green;'>✓ Table 'users' checked/created successfully.</p>";
+} else {
+    echo "<p style='color:red;'>✗ Error creating 'users' table: " . mysqli_error($conn) . "</p>";
+}
+
+// Add default admin if not exists
+$check_admin = mysqli_query($conn, "SELECT * FROM users WHERE username = 'admin'");
+if (mysqli_num_rows($check_admin) == 0) {
+    // password: admin (hashed)
+    $password = password_hash('admin', PASSWORD_DEFAULT);
+    $sql_admin = "INSERT INTO users (username, password, fullname, role) VALUES ('admin', '$password', 'Admin', 'admin')";
+    if (mysqli_query($conn, $sql_admin)) {
+        echo "<p style='color:green;'>✓ Default admin user created.</p>";
+    }
+}
+
+// 2. Room Table
+$sql_room = "CREATE TABLE IF NOT EXISTS `room` (
+  `room_id` int(11) NOT NULL AUTO_INCREMENT,
+  `room_no` varchar(20) NOT NULL UNIQUE,
+  `room_type` varchar(50) NOT NULL,
+  `price` decimal(10,2) NOT NULL,
+  `status` enum('Available','Occupied','Maintenance') NOT NULL DEFAULT 'Available',
+  `floor` int(11) DEFAULT NULL,
+  `details` text DEFAULT NULL,
+  PRIMARY KEY (`room_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+
+if (mysqli_query($conn, $sql_room)) {
+    echo "<p style='color:green;'>✓ Table 'room' checked/created successfully.</p>";
+} else {
+    echo "<p style='color:red;'>✗ Error creating 'room' table: " . mysqli_error($conn) . "</p>";
+}
+
+// 3. Tenant Table
+$sql_tenant = "CREATE TABLE IF NOT EXISTS `tenant` (
+  `tenant_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `phone` varchar(50) NOT NULL,
+  `room_no` varchar(50) NOT NULL,
+  PRIMARY KEY (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
+
+if (mysqli_query($conn, $sql_tenant)) {
+    echo "<p style='color:green;'>✓ Table 'tenant' checked/created successfully.</p>";
+} else {
+    echo "<p style='color:red;'>✗ Error creating 'tenant' table: " . mysqli_error($conn) . "</p>";
+}
+
+// Add missing columns to tenant if needed
+$columns_to_add = [
+    "id_card" => "VARCHAR(20) DEFAULT NULL AFTER name",
+    "room_type" => "VARCHAR(50) DEFAULT NULL AFTER room_no",
+    "check_in_date" => "DATE DEFAULT NULL AFTER room_type",
+    "created_at" => "TIMESTAMP NOT NULL DEFAULT current_timestamp()"
+];
+
+foreach ($columns_to_add as $col => $def) {
+    $check_col = mysqli_query($conn, "SHOW COLUMNS FROM tenant LIKE '$col'");
+    if (mysqli_num_rows($check_col) == 0) {
+        $sql_alter = "ALTER TABLE tenant ADD COLUMN $col $def";
+        if (mysqli_query($conn, $sql_alter)) {
+            echo "<p style='color:green;'>✓ Added column '$col' to 'tenant'.</p>";
+        } else {
+            echo "<p style='color:red;'>✗ Error adding column '$col': " . mysqli_error($conn) . "</p>";
+        }
+    } else {
+        echo "<p style='color:gray;'>- Column '$col' already exists in 'tenant'.</p>";
+    }
+}
+
+echo "<hr>";
+echo "<p>Database setup completed.</p>";
+echo "<a href='index.php'>Go to Home</a>";
+?>

@@ -1,0 +1,18 @@
+<?php
+session_start();
+
+// ล้างข้อมูล Session ทั้งหมด
+$_SESSION = array();
+
+// ลบ Session Cookie
+if(isset($_COOKIE[session_name()])) {
+    setcookie(session_name(), '', time()-3600, '/');
+}
+
+// ทำลาย Session
+session_destroy();
+
+// กลับไปหน้า Login
+header("Location: login.php");
+exit();
+?>

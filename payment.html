@@ -1,0 +1,1293 @@
+<?php
+include "config.php";
+require_once 'auth.php';
+requireLogin();
+
+$showReceipt = false;
+$r = [];
+
+// สร้างโฟลเดอร์ uploads ถ้าไม่มี
+$uploadDir = 'uploads/slips/';
+if (!is_dir($uploadDir)) {
+    mkdir($uploadDir, 0777, true);
+}
+
+// เพิ่มคอลัมน์ pay_month ในตาราง payment ถ้ายังไม่มี
+$checkCol0 = mysqli_query($conn, "SHOW COLUMNS FROM payment LIKE 'pay_month'");
+if (mysqli_num_rows($checkCol0) == 0) {
+    mysqli_query($conn, "ALTER TABLE payment ADD COLUMN pay_month VARCHAR(20) DEFAULT NULL AFTER room_no");
+}
+
+// เพิ่มคอลัมน์ slip_image ในตาราง payment ถ้ายังไม่มี
+$checkCol = mysqli_query($conn, "SHOW COLUMNS FROM payment LIKE 'slip_image'");
+if (mysqli_num_rows($checkCol) == 0) {
+    mysqli_query($conn, "ALTER TABLE payment ADD COLUMN slip_image VARCHAR(255) DEFAULT NULL");
+}
+
+// เพิ่มคอลัมน์ payment_status ในตาราง payment ถ้ายังไม่มี
+$checkCol2 = mysqli_query($conn, "SHOW COLUMNS FROM payment LIKE 'payment_status'");
+if (mysqli_num_rows($checkCol2) == 0) {
+    mysqli_query($conn, "ALTER TABLE payment ADD COLUMN payment_status VARCHAR(50) DEFAULT 'completed'");
+}
+
+if(isset($_POST['save'])){
+    $tenant_name = mysqli_real_escape_string($conn, $_POST['tenant_name']);
+    $room_no = mysqli_real_escape_string($conn, $_POST['room_no']);
+    $pay_month = mysqli_real_escape_string($conn, $_POST['pay_month']);
+    $amount = mysqli_real_escape_string($conn, $_POST['amount']);
+    $payment_type = mysqli_real_escape_string($conn, $_POST['payment_type']);
+    
+    $slipFilename = null;
+    $paymentStatus = 'completed';
+    
+    // จัดการอัปโหลดสลิป
+    if (isset($_FILES['slip_image']) && $_FILES['slip_image']['error'] === UPLOAD_ERR_OK) {
+        $fileExtension = strtolower(pathinfo($_FILES['slip_image']['name'], PATHINFO_EXTENSION));
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        
+        if (in_array($fileExtension, $allowedExtensions)) {
+            $slipFilename = 'slip_' . date('YmdHis') . '_' . uniqid() . '.' . $fileExtension;
+            move_uploaded_file($_FILES['slip_image']['tmp_name'], $uploadDir . $slipFilename);
+            $paymentStatus = 'pending_verify'; // รอตรวจสอบสลิป
+        }
+    }
+    
+    $slipSQL = $slipFilename ? "'$slipFilename'" : "NULL";
+    
+    mysqli_query($conn, "INSERT INTO payment (tenant_name, room_no, pay_month, amount, payment_type, slip_image, payment_status) 
+                         VALUES ('$tenant_name', '$room_no', '$pay_month', '$amount', '$payment_type', $slipSQL, '$paymentStatus')");
+    
+    if(isset($_POST['generate_receipt'])){
+        $tid = mysqli_fetch_assoc(mysqli_query($conn, "SELECT tenant_id FROM tenant WHERE name='$tenant_name' LIMIT 1"))['tenant_id'] ?? 0;
+        mysqli_query($conn, "INSERT INTO receipt (tenant_id,pay_date,amount) VALUES ('$tid','".date('Y-m-d')."','$amount')");
+        $r = ['id'=>mysqli_insert_id($conn), 'name'=>$tenant_name, 'room'=>$room_no, 'month'=>$pay_month, 'amt'=>$amount, 'type'=>$payment_type, 'date'=>date('d/m/Y'), 'slip'=>$slipFilename];
+        $showReceipt = true;
+    }
+}
+
+$fullname = getCurrentFullname();
+$initial = mb_substr($fullname, 0, 1, 'UTF-8');
+?>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ชำระเงิน - ระบบจัดการห้องเช่า</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+    --g1: #0a1628;
+    --g2: #1a2d50;
+    --g3: #274472;
+    --g4: #3a6098;
+    --g5: #5b8ec2;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Prompt', 'Segoe UI', Tahoma, sans-serif;
+    background: linear-gradient(135deg, var(--g1), var(--g2), var(--g3));
+    min-height: 100vh;
+    padding-bottom: 80px;
+}
+
+/* ===== Navbar ===== */
+.navbar {
+    background: rgba(0,0,0,0.25);
+    backdrop-filter: blur(10px);
+    padding: 0 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.navbar-brand .logo-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.navbar-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.navbar-links a {
+    color: rgba(255,255,255,0.85);
+    text-decoration: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.navbar-links a:hover {
+    background: rgba(255,255,255,0.15);
+    color: white;
+}
+
+.navbar-links a.active {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    font-weight: 600;
+}
+
+.nav-avatar {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--g4), var(--g3));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    border: 2px solid rgba(255,255,255,0.25);
+    margin-left: 4px;
+}
+
+/* ===== Page Header ===== */
+.page-header {
+    text-align: center;
+    padding: 30px 20px 10px;
+    color: white;
+}
+
+.page-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.page-header p {
+    font-size: 14px;
+    color: rgba(255,255,255,0.7);
+    margin-top: 4px;
+}
+
+/* ===== Main Layout ===== */
+.wrap {
+    display: flex;
+    gap: 24px;
+    max-width: 1100px;
+    margin: 24px auto;
+    padding: 0 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.box {
+    flex: 1;
+    min-width: 300px;
+    width: 100%;
+    max-width: 520px;
+    background: white;
+    padding: 30px;
+    border-radius: 18px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+    animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.table-container{width:100%;overflow-x:auto;margin-top:10px}
+table{width:100%;border-collapse:collapse;min-width:800px}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.box h3 {
+    color: var(--g2);
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--g5);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* ===== Form ===== */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    color: #374151;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.3s;
+    background: #f9fafb;
+    color: #1f2937;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--g3);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(39,68,114,0.1);
+}
+
+/* ===== Payment Method Cards ===== */
+.payment-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.payment-method {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #f9fafb;
+}
+
+.payment-method:hover {
+    border-color: var(--g4);
+    background: #edf2ff;
+}
+
+.payment-method.selected {
+    border-color: var(--g3);
+    background: linear-gradient(135deg, #edf2ff, #d0e4f7);
+    box-shadow: 0 0 0 3px rgba(39,68,114,0.12);
+}
+
+.payment-method input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--g3);
+    flex-shrink: 0;
+}
+
+.payment-method .method-icon {
+    font-size: 24px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(26,45,80,0.08);
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.payment-method .method-info {
+    flex: 1;
+}
+
+.payment-method .method-name {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 14px;
+}
+
+.payment-method .method-desc {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+/* ===== Transfer/PromptPay Section ===== */
+.transfer-section {
+    display: none;
+    margin-top: 16px;
+    animation: fadeIn 0.4s ease-out;
+}
+
+.transfer-section.show {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* QR Code */
+.qr-card {
+    background: linear-gradient(135deg, #edf2ff, #d0e4f7);
+    border: 1px solid #93b8d9;
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.qr-card .qr-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--g2);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.qr-placeholder {
+    width: 180px;
+    height: 180px;
+    background: white;
+    margin: 0 auto 12px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--g4);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Simple QR code pattern using CSS */
+.qr-pattern {
+    width: 150px;
+    height: 150px;
+    display: grid;
+    grid-template-columns: repeat(11, 1fr);
+    grid-template-rows: repeat(11, 1fr);
+    gap: 1px;
+}
+
+.qr-pattern .qr-cell {
+    background: #1f2937;
+    border-radius: 1px;
+}
+
+.qr-pattern .qr-empty {
+    background: white;
+}
+
+.qr-info {
+    font-size: 12px;
+    color: #4b5563;
+    margin-top: 8px;
+}
+
+.qr-info strong {
+    color: var(--g2);
+    font-size: 13px;
+}
+
+.bank-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(255,255,255,0.7);
+    border-radius: 10px;
+    font-size: 13px;
+    text-align: left;
+}
+
+.bank-info .bank-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bank-info .bank-label {
+    color: #6b7280;
+}
+
+.bank-info .bank-value {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+/* ===== Slip Upload ===== */
+.slip-upload {
+    border: 2px dashed #d1d5db;
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+    transition: all 0.3s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: #f9fafb;
+}
+
+.slip-upload:hover {
+    border-color: var(--g4);
+    background: #edf2ff;
+}
+
+.slip-upload.has-file {
+    border-color: var(--g3);
+    background: #edf2ff;
+    border-style: solid;
+}
+
+.slip-upload .upload-icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+.slip-upload .upload-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 4px;
+}
+
+.slip-upload .upload-hint {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.slip-upload input[type="file"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* Slip Preview */
+.slip-preview {
+    display: none;
+    margin-top: 12px;
+    position: relative;
+}
+
+.slip-preview.show {
+    display: block;
+}
+
+.slip-preview img {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    display: block;
+    margin: 0 auto;
+}
+
+.slip-preview .remove-slip {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    background: rgba(239,68,68,0.9);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(239,68,68,0.3);
+}
+
+.slip-preview .remove-slip:hover {
+    background: #dc2626;
+    transform: scale(1.1);
+}
+
+.slip-filename {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--g2);
+    font-weight: 500;
+}
+
+/* ===== Checkbox ===== */
+.chk {
+    margin-top: 18px;
+    padding: 14px;
+    background: linear-gradient(135deg, #e0eaf5, #d0e4f7);
+    border-radius: 12px;
+}
+
+.chk label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    cursor: pointer;
+    color: var(--g2);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.chk input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--g3);
+    flex-shrink: 0;
+}
+
+/* ===== Submit Button ===== */
+.btn-submit {
+    margin-top: 20px;
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--g3), var(--g2));
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 5px 18px rgba(26,45,80,0.4);
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-submit::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transition: left 0.5s;
+}
+
+.btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(26,45,80,0.5);
+}
+
+.btn-submit:hover::before {
+    left: 100%;
+}
+
+/* ===== Success Message ===== */
+.msg {
+    background: linear-gradient(135deg, var(--g3), var(--g2));
+    color: white;
+    padding: 14px 18px;
+    border-radius: 12px;
+    text-align: center;
+    margin-bottom: 18px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    animation: fadeIn 0.5s;
+}
+
+/* ===== Receipt ===== */
+.rcp {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+    overflow: hidden;
+}
+
+.rcp-hd {
+    background: linear-gradient(135deg, var(--g2), var(--g1));
+    color: white;
+    padding: 22px;
+    text-align: center;
+}
+
+.rcp-hd h3 {
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: white;
+}
+
+.rcp-bd { padding: 25px; }
+
+.rcp-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px dashed #e5e7eb;
+}
+
+.rcp-row:last-child { border: none; }
+
+.rcp-lbl { color: #6b7280; font-size: 13px; }
+.rcp-val { color: #1f2937; font-weight: 600; }
+
+.rcp-tot {
+    background: linear-gradient(135deg, #e0eaf5, #d0e4f7);
+    margin: 15px -25px;
+    padding: 18px 25px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.rcp-tot span {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--g2);
+}
+
+.rcp-slip {
+    text-align: center;
+    padding: 15px 0;
+    border-top: 1px dashed #e5e7eb;
+}
+
+.rcp-slip img {
+    max-width: 200px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.rcp-slip p {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 6px;
+}
+
+.rcp-ft {
+    text-align: center;
+    padding: 14px;
+    background: #f9fafb;
+    color: #9ca3af;
+    font-size: 12px;
+}
+
+.prt {
+    margin: 15px 25px;
+    width: calc(100% - 50px);
+    padding: 12px;
+    background: linear-gradient(135deg, #1976d2, #1565c0);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.3s;
+}
+
+.prt:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(25,118,210,0.4);
+}
+
+/* ===== History ===== */
+.hist {
+    max-width: 960px;
+    margin: 24px auto;
+    padding: 0 20px;
+}
+
+.hist .box {
+    max-width: 100%;
+    min-width: auto;
+}
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.tabs button {
+    flex: 1;
+    padding: 11px;
+    background: #f3f4f6;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: inherit;
+    font-size: 14px;
+    transition: all 0.3s;
+    color: #6b7280;
+}
+
+.tabs button.on {
+    background: linear-gradient(135deg, var(--g3), var(--g2));
+    color: white;
+    box-shadow: 0 3px 10px rgba(26,45,80,0.3);
+}
+
+.tab { display: none; }
+.tab.on { display: block; }
+
+table{
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+th, td {
+    padding: 12px;
+    text-align: center;
+    border: 1px solid #bdc3c7;
+    font-size: 14px;
+}
+
+th {
+    background: var(--g2);
+    color: white;
+    font-weight: 600;
+}
+
+td {
+    color: #333;
+}
+
+tr:nth-child(even) {
+    background: #f8fafc;
+}
+
+tr:hover td {
+    background: #e3f2fd;
+    color: var(--g2);
+    cursor: default;
+}
+
+.slip-thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.3s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.slip-thumb:hover {
+    transform: scale(1.2);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.status-completed {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* ===== Slip Modal ===== */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal-content {
+    max-width: 90%;
+    max-height: 90vh;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+.modal-content img {
+    max-width: 100%;
+    max-height: 85vh;
+    display: block;
+}
+
+.modal-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.modal-close:hover {
+    background: rgba(239,68,68,0.8);
+}
+
+/* ===== Print ===== */
+@media print {
+    body * { visibility: hidden; }
+    .rcp, .rcp * { visibility: visible; }
+    .rcp { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; }
+    .prt, .navbar, .nav-bar { display: none; }
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 600px) {
+    .navbar { padding: 0 16px; }
+    .navbar-brand span { display: none; }
+    .navbar-links a { padding: 6px 10px; font-size: 12px; }
+    .box { min-width: auto; padding: 20px; }
+    .wrap { padding: 0 12px; }
+    .qr-placeholder { width: 140px; height: 140px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Navbar ===== -->
+<nav class="navbar">
+    <a href="index.php" class="navbar-brand">
+        <div class="logo-icon">🏠</div>
+        <span>Apartment</span>
+    </a>
+    <div class="navbar-links">
+        <a href="index.php">Home</a>
+        <a href="tenant.php">Tenants</a>
+        <a href="contract2.php">Contract</a>
+        <a href="payment.php" class="active">Payment</a>
+        <a href="logout.php">Logout</a>
+        <div class="nav-avatar"><?php echo htmlspecialchars($initial); ?></div>
+    </div>
+</nav>
+
+<!-- ===== Header ===== -->
+<div class="page-header">
+    <h1>💳 ระบบชำระเงินค่าห้องพัก</h1>
+    <p>กรอกข้อมูลและเลือกวิธีการชำระเงิน</p>
+</div>
+
+<!-- ===== Main Content ===== -->
+<div class="wrap">
+    <div class="box">
+        <h3>📋 กรอกข้อมูลการชำระเงิน</h3>
+        
+        <?php if(isset($_POST['save']) && !$showReceipt): ?>
+        <div class="msg">✅ บันทึกการชำระเงินเรียบร้อยแล้ว</div>
+        <?php endif; ?>
+        
+        <form method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>👤 ชื่อผู้เช่า</label>
+                <input type="text" name="tenant_name" placeholder="กรอกชื่อผู้เช่า" required>
+            </div>
+            
+            <div class="form-group">
+                <label>🚪 เลขห้อง</label>
+                <input type="text" name="room_no" placeholder="เช่น A101, B202" required>
+            </div>
+            
+            <div class="form-group">
+                <label>📅 เดือนที่ชำระ</label>
+                <input type="month" name="pay_month" required>
+            </div>
+            
+            <div class="form-group">
+                <label>💰 จำนวนเงิน (บาท)</label>
+                <input type="number" name="amount" placeholder="0.00" step="0.01" min="0" required id="amountInput">
+            </div>
+            
+            <div class="form-group">
+                <label>💳 วิธีชำระเงิน</label>
+                <div class="payment-methods">
+                    <label class="payment-method selected" id="method-cash">
+                        <input type="radio" name="payment_type" value="💵 เงินสด" checked onchange="switchMethod('cash')">
+                        <div class="method-icon">💵</div>
+                        <div class="method-info">
+                            <div class="method-name">เงินสด</div>
+                            <div class="method-desc">ชำระด้วยเงินสดที่แผนกต้อนรับ</div>
+                        </div>
+                    </label>
+                    
+                    <label class="payment-method" id="method-transfer">
+                        <input type="radio" name="payment_type" value="🏦 โอนเงิน" onchange="switchMethod('transfer')">
+                        <div class="method-icon">🏦</div>
+                        <div class="method-info">
+                            <div class="method-name">โอนเงิน</div>
+                            <div class="method-desc">โอนผ่านบัญชีธนาคาร + แนบสลิป</div>
+                        </div>
+                    </label>
+                    
+                    <label class="payment-method" id="method-promptpay">
+                        <input type="radio" name="payment_type" value="📱 พร้อมเพย์" onchange="switchMethod('promptpay')">
+                        <div class="method-icon">📱</div>
+                        <div class="method-info">
+                            <div class="method-name">พร้อมเพย์</div>
+                            <div class="method-desc">สแกน QR Code ชำระผ่านแอปธนาคาร + แนบสลิป</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Transfer Section -->
+            <div class="transfer-section" id="transferSection">
+                <div class="qr-card" id="qrCard">
+                    <div class="qr-title" id="qrTitle">🏦 ข้อมูลบัญชีโอนเงิน</div>
+                    
+                    <!-- QR Code (CSS Pattern) -->
+                    <div class="qr-placeholder" id="qrArea"></div>
+                    
+                    <div class="bank-info" id="bankInfo">
+                        <div class="bank-row">
+                            <span class="bank-label">ธนาคาร:</span>
+                            <span class="bank-value">ธนาคารกสิกรไทย</span>
+                        </div>
+                        <div class="bank-row">
+                            <span class="bank-label">ชื่อบัญชี:</span>
+                            <span class="bank-value">บจก. อพาร์ทเมนต์</span>
+                        </div>
+                        <div class="bank-row">
+                            <span class="bank-label">เลขบัญชี:</span>
+                            <span class="bank-value">xxx-x-xxxxx-x</span>
+                        </div>
+                    </div>
+                    
+                    <div class="qr-info" id="promptpayInfo" style="display:none;">
+                        <strong>พร้อมเพย์: xxx-xxx-xxxx</strong>
+                        <br>สแกน QR Code ด้านบนเพื่อชำระเงิน
+                    </div>
+                </div>
+                
+                <!-- Slip Upload -->
+                <div class="slip-upload" id="slipUpload">
+                    <div class="upload-icon">📤</div>
+                    <div class="upload-text">อัปโหลดสลิปการโอนเงิน</div>
+                    <div class="upload-hint">รองรับไฟล์ JPG, PNG, GIF (ขนาดไม่เกิน 5MB)</div>
+                    <input type="file" name="slip_image" id="slipInput" accept="image/*" onchange="previewSlip(this)">
+                </div>
+                
+                <div class="slip-preview" id="slipPreview">
+                    <img id="slipImage" src="" alt="Slip Preview">
+                    <button type="button" class="remove-slip" onclick="removeSlip()">✕</button>
+                    <div class="slip-filename" id="slipFilename"></div>
+                </div>
+            </div>
+            
+            <div class="chk">
+                <label>
+                    <input type="checkbox" name="generate_receipt" checked>
+                    <span>🧾 ออกใบเสร็จหลังชำระเงิน</span>
+                </label>
+            </div>
+            
+            <button type="submit" name="save" class="btn-submit">
+                <span>💾</span>
+                <span>บันทึกการชำระเงิน</span>
+            </button>
+        </form>
+    </div>
+
+    <?php if($showReceipt): ?>
+    <div class="box rcp">
+        <div class="rcp-hd">
+            <h3>🧾 ใบเสร็จรับเงิน</h3>
+            <p>RCP-<?=str_pad($r['id'],5,'0',STR_PAD_LEFT)?></p>
+        </div>
+        <div class="rcp-bd">
+            <div class="rcp-row"><span class="rcp-lbl">วันที่</span><span class="rcp-val"><?=$r['date']?></span></div>
+            <div class="rcp-row"><span class="rcp-lbl">ชื่อผู้เช่า</span><span class="rcp-val"><?=htmlspecialchars($r['name'])?></span></div>
+            <div class="rcp-row"><span class="rcp-lbl">เลขห้อง</span><span class="rcp-val"><?=htmlspecialchars($r['room'])?></span></div>
+            <div class="rcp-row"><span class="rcp-lbl">เดือน</span><span class="rcp-val"><?=$r['month']?></span></div>
+            <div class="rcp-row"><span class="rcp-lbl">วิธีชำระ</span><span class="rcp-val"><?=htmlspecialchars($r['type'])?></span></div>
+            <div class="rcp-tot"><span>ยอดรวม</span><span>฿<?=number_format($r['amt'],2)?></span></div>
+            <?php if(!empty($r['slip'])): ?>
+            <div class="rcp-slip">
+                <p>📎 หลักฐานการโอน</p>
+                <img src="<?=$uploadDir . $r['slip']?>" alt="Slip" onclick="openModal(this.src)">
+            </div>
+            <?php endif; ?>
+        </div>
+        <div style="text-align: center; margin-top: 15px; border-top: 1px dashed #ddd; padding-top: 15px;">
+            <?php 
+                $rcp_id = "RCP-" . str_pad($r['id'],5,'0',STR_PAD_LEFT);
+                $rcp_qr = "https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=" . urlencode($rcp_id);
+            ?>
+            <img src="<?php echo $rcp_qr; ?>" alt="Receipt QR" style="width: 60px; height: 60px; opacity: 0.7;">
+            <p style="font-size: 10px; color: #94a3b8; margin-top: 5px;">หมายเลขใบเสร็จ: <?php echo $rcp_id; ?></p>
+        </div>
+        <button class="prt" onclick="print()">🖨️ พิมพ์ใบเสร็จ</button>
+        <div class="rcp-ft">ขอบคุณที่ใช้บริการ</div>
+    </div>
+    <?php endif; ?>
+</div>
+
+<!-- ===== History ===== -->
+<div class="hist">
+    <div class="box">
+        <h3>📊 ประวัติการชำระเงิน</h3>
+        <div class="tabs">
+            <button class="on" onclick="tab(0)">💳 การชำระเงิน</button>
+            <button onclick="tab(1)">🧾 ใบเสร็จ</button>
+        </div>
+        <div class="tab on">
+            <div class="table-container">
+            <table>
+                <tr>
+                    <th>รหัส</th>
+                    <th>ชื่อ</th>
+                    <th>ห้อง</th>
+                    <th>เดือน</th>
+                    <th>จำนวน</th>
+                    <th>วิธี</th>
+                    <th>สลิป</th>
+                    <th>สถานะ</th>
+                </tr>
+                <?php 
+                $q = mysqli_query($conn, "SELECT * FROM payment ORDER BY payment_id DESC LIMIT 15");
+                while($row = mysqli_fetch_assoc($q)): 
+                    $slip = $row['slip_image'] ?? null;
+                    $status = $row['payment_status'] ?? 'completed';
+                ?>
+                <tr>
+                    <td><?=$row['payment_id']?></td>
+                    <td><?=htmlspecialchars($row['tenant_name'])?></td>
+                    <td><?=$row['room_no']?></td>
+                    <td><?=$row['pay_month'] ?? '-'?></td>
+                    <td>฿<?=number_format($row['amount'],2)?></td>
+                    <td><?=$row['payment_type']?></td>
+                    <td>
+                        <?php if($slip): ?>
+                            <img src="<?=$uploadDir . $slip?>" class="slip-thumb" alt="slip" onclick="openModal(this.src)">
+                        <?php else: ?>
+                            <span style="color:#9ca3af;">-</span>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <?php if($status === 'pending_verify'): ?>
+                            <span class="status-badge status-pending">⏳ รอตรวจ</span>
+                        <?php else: ?>
+                            <span class="status-badge status-completed">✅ สำเร็จ</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endwhile; ?>
+            </table>
+            </div>
+        </div>
+        <div class="tab">
+            <div class="table-container">
+            <table>
+                <tr><th>เลขที่</th><th>ผู้เช่า</th><th>วันที่</th><th>จำนวน</th></tr>
+                <?php 
+                $q2 = mysqli_query($conn, "SELECT * FROM receipt ORDER BY receipt_id DESC LIMIT 15");
+                while($row2 = mysqli_fetch_assoc($q2)): ?>
+                <tr>
+                    <td>RCP-<?=str_pad($row2['receipt_id'],5,'0',STR_PAD_LEFT)?></td>
+                    <td><?=$row2['tenant_id']?></td>
+                    <td><?=date('d/m/Y',strtotime($row2['pay_date']))?></td>
+                    <td>฿<?=number_format($row2['amount'],2)?></td>
+                </tr>
+                <?php endwhile; ?>
+            </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Slip Modal ===== -->
+<div class="modal-overlay" id="slipModal" onclick="closeModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <img id="modalImage" src="" alt="Slip">
+        <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+</div>
+
+<script>
+// ===== Switch Payment Method =====
+function switchMethod(type) {
+    // Update selected card styling
+    document.querySelectorAll('.payment-method').forEach(el => el.classList.remove('selected'));
+    document.getElementById('method-' + type).classList.add('selected');
+    
+    const transferSection = document.getElementById('transferSection');
+    const bankInfo = document.getElementById('bankInfo');
+    const promptpayInfo = document.getElementById('promptpayInfo');
+    const qrTitle = document.getElementById('qrTitle');
+    const qrArea = document.getElementById('qrArea');
+    
+    if (type === 'cash') {
+        transferSection.classList.remove('show');
+    } else {
+        transferSection.classList.add('show');
+        
+        if (type === 'transfer') {
+            qrTitle.innerHTML = '🏦 ข้อมูลบัญชีโอนเงิน';
+            bankInfo.style.display = 'flex';
+            promptpayInfo.style.display = 'none';
+            qrArea.innerHTML = '<div style="font-size:48px; color:var(--g2); margin:20px;">🏦</div>';
+        } else {
+            qrTitle.innerHTML = '📱 สแกน QR พร้อมเพย์';
+            bankInfo.style.display = 'none';
+            promptpayInfo.style.display = 'block';
+            
+            // Get amount for QR
+            const amt = document.getElementById('amountInput').value || '0.00';
+            const qrData = 'PromptPay: 08x-xxx-xxxx Amount: ' + amt;
+            const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(qrData);
+            
+            qrArea.innerHTML = `
+                <div style="background:white; padding:10px; border-radius:12px; display:inline-block; border:1px solid #ddd;">
+                    <img src="${qrUrl}" alt="PromptPay QR" style="width:150px; height:150px; display:block;">
+                </div>
+            `;
+        }
+    }
+}
+
+// ===== Generate QR-like pattern =====
+function generateQR(container) {
+    let html = '<div class="qr-pattern">';
+    const pattern = [
+        1,1,1,1,1,1,1,0,1,0,1,
+        1,0,0,0,0,0,1,0,0,1,0,
+        1,0,1,1,1,0,1,0,1,0,1,
+        1,0,1,1,1,0,1,0,0,1,1,
+        1,0,1,1,1,0,1,0,1,1,0,
+        1,0,0,0,0,0,1,0,0,0,1,
+        1,1,1,1,1,1,1,0,1,0,1,
+        0,0,0,0,0,0,0,0,1,1,0,
+        1,0,1,0,1,1,1,1,0,0,1,
+        0,1,0,1,0,0,0,1,1,0,1,
+        1,1,1,0,1,0,1,0,1,1,1,
+    ];
+    
+    for (let i = 0; i < pattern.length; i++) {
+        html += '<div class="' + (pattern[i] ? 'qr-cell' : 'qr-empty') + '"></div>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ===== Preview Slip =====
+function previewSlip(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('ไฟล์ต้องมีขนาดไม่เกิน 5MB');
+        input.value = '';
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('slipImage').src = e.target.result;
+        document.getElementById('slipPreview').classList.add('show');
+        document.getElementById('slipUpload').classList.add('has-file');
+        document.getElementById('slipFilename').innerHTML = '📎 ' + file.name;
+    };
+    reader.readAsDataURL(file);
+}
+
+// ===== Remove Slip =====
+function removeSlip() {
+    document.getElementById('slipInput').value = '';
+    document.getElementById('slipPreview').classList.remove('show');
+    document.getElementById('slipUpload').classList.remove('has-file');
+    document.getElementById('slipFilename').innerHTML = '';
+    document.getElementById('slipImage').src = '';
+}
+
+// ===== Tab Switch =====
+function tab(n) {
+    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('on', i == n));
+    document.querySelectorAll('.tabs button').forEach((b, i) => b.classList.toggle('on', i == n));
+}
+
+// ===== Modal =====
+function openModal(src) {
+    document.getElementById('modalImage').src = src;
+    document.getElementById('slipModal').classList.add('show');
+}
+
+function closeModal() {
+    document.getElementById('slipModal').classList.remove('show');
+}
+
+// Close modal with ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,50 @@
+<?php
+/**
+ * ไฟล์สำหรับตรวจสอบ Session การ Login
+ * ให้ include ไฟล์นี้ในทุกหน้าที่ต้องการให้ login ก่อน
+ */
+
+session_start();
+
+// ตรวจสอบว่า login หรือยัง
+function isLoggedIn() {
+    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+}
+
+// ตรวจสอบ role
+function isAdmin() {
+    return isLoggedIn() && $_SESSION['role'] === 'admin';
+}
+
+// บังคับให้ login
+function requireLogin() {
+    if(!isLoggedIn()) {
+        header("Location: login.php");
+        exit();
+    }
+}
+
+// บังคับให้เป็น admin
+function requireAdmin() {
+    requireLogin();
+    if(!isAdmin()) {
+        header("Location: index.php?error=unauthorized");
+        exit();
+    }
+}
+
+// รับชื่อผู้ใช้ปัจจุบัน
+function getCurrentUsername() {
+    return $_SESSION['username'] ?? '';
+}
+
+// รับชื่อเต็มผู้ใช้ปัจจุบัน
+function getCurrentFullname() {
+    return $_SESSION['fullname'] ?? '';
+}
+
+// รับ role ผู้ใช้ปัจจุบัน
+function getCurrentRole() {
+    return $_SESSION['role'] ?? '';
+}
+?>

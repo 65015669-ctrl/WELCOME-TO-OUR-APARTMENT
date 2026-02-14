@@ -1,0 +1,248 @@
+<?php
+session_start();
+
+// ลำดับความสำคัญของ IP:
+// 1. จาก POST (ถ้า User ขี้เกียจแก้ในโค้ด)
+// 2. IP ที่ User ระบุมาล่าสุด (172.18.108.235)
+// 3. ตรวจหาอัตโนมัติ
+$default_ip = "172.18.108.235"; 
+
+function getAutoIP() {
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        $ip = gethostbyname(gethostname());
+    } else {
+        $ip = $_SERVER['SERVER_ADDR'] ?? 'localhost';
+    }
+    return ($ip == '127.0.0.1' || $ip == '::1') ? "172.18.108.235" : $ip;
+}
+
+// จัดการ URL และ IP สำหรับการเข้าถึง
+$default_ip = "172.18.108.235"; 
+$current_path = "/eSupport/apartment"; 
+
+// รับค่าจากฟอร์ม (อาจเป็น IP หรือ Public URL จาก ngrok ก็ได้)
+$user_input = isset($_POST['custom_url']) ? trim($_POST['custom_url']) : $default_ip;
+
+// ตรวจสอบว่าสิ่งที่กรอกมาเป็น URL เต็มรูปแบบ (เช่น ngrok) หรือแค่ IP
+if (strpos($user_input, 'http') === 0) {
+    $hub_url = $user_input;
+} else {
+    // ถ้าเป็นแค่ IP หรือ Domain ให้เติม http และ path
+    $clean_host = trim($user_input, "/ ");
+    $hub_url = "http://" . $clean_host . $current_path;
+}
+
+// เรียก API สร้าง QR Code (ขนาดใหญ่ขึ้นเพื่อให้สแกนง่าย)
+$qr_api = "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=" . urlencode($hub_url);
+$is_public = (strpos($hub_url, 'ngrok') !== false || strpos($hub_url, 'https') === 0);
+?>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Hub - <?php echo $local_ip; ?></title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #274472;
+            --secondary: #1a2d50;
+            --accent: #3a6098;
+            --bg: #0a1628;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Prompt', sans-serif;
+            background: linear-gradient(135deg, #050f1e, #1a2d50);
+            min-height: 100vh;
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* QR Frame Design - Cleaner and more scanable */
+        .qr-frame {
+            background: white;
+            padding: 40px; /* เพิ่มพื้นที่สีขาวรอบ QR (Quiet Zone) */
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            max-width: 380px;
+            width: 100%;
+            border: 2px solid #e2e8f0;
+        }
+
+        .qr-img {
+            width: 280px;
+            height: 280px;
+            margin-bottom: 0;
+            /* เพิ่มความคมชัด */
+            image-rendering: crisp-edges;
+        }
+
+        .info-panel {
+            margin-top: 30px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(15px);
+            padding: 30px;
+            border-radius: 24px;
+            color: white;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .troubleshoot {
+            margin-top: 20px;
+            font-size: 12px;
+            background: rgba(255, 100, 100, 0.1);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 100, 100, 0.2);
+            text-align: left;
+        }
+        .troubleshoot ul { margin-left: 20px; margin-top: 5px; }
+
+        .url-text {
+            font-family: monospace;
+            background: white;
+            color: var(--primary);
+            padding: 12px;
+            border-radius: 12px;
+            margin: 15px 0;
+            word-break: break-all;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .hub-btn {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            text-decoration: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .hub-btn:hover {
+            background: white;
+            color: var(--primary);
+        }
+
+        .ip-edit {
+            margin-top: 20px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .ip-edit input {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-family: inherit;
+            flex: 1;
+        }
+
+        .ip-edit button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .back-link {
+            margin-top: 25px;
+            color: rgba(255,255,255,0.5);
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .back-link:hover { color: white; }
+
+        @media (max-width: 480px) {
+            .qr-img { width: 200px; height: 200px; }
+            .scan-me-label { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="qr-frame">
+        <img src="<?php echo $qr_api; ?>" alt="QR Code" class="qr-img">
+    </div>
+
+    <div class="info-panel">
+        <h2 style="font-size: 22px; margin-bottom: 12px;">
+            <?php echo $is_public ? '🌐 Public Access (Online)' : '📱 Local Access (WiFi)'; ?>
+        </h2>
+        <p style="font-size: 14px; opacity: 0.8; margin-bottom: 20px;">สแกนเพื่อเปิดระบบจัดการอพาร์ตเมนต์:</p>
+        
+        <div class="url-text"><?php echo $hub_url; ?></div>
+
+        <div class="btn-grid">
+            <a href="login.php" class="hub-btn"><i class="fas fa-sign-in-alt"></i> เข้าสู่ระบบ</a>
+            <a href="index.php" class="hub-btn"><i class="fas fa-home"></i> หน้าหลัก</a>
+            <a href="diagrams/index.html" class="hub-btn"><i class="fas fa-project-diagram"></i> ไดอะแกรม</a>
+        </div>
+
+        <form class="ip-edit" method="POST">
+            <input type="text" name="custom_url" value="<?php echo $user_input; ?>" placeholder="ใส่ IP หรือ URL จาก ngrok...">
+            <button type="submit">อัปเดต QR</button>
+        </form>
+
+        <?php if (!$is_public): ?>
+        <div class="troubleshoot">
+            <strong>🚀 วิธีทำให้สแกนได้จากทุกที่ (ผ่านเน็ต 4G/5G):</strong>
+            <p style="font-size: 13px; margin-top: 10px;">
+                1. รัน <code>ngrok http 80</code> ในคอมเครื่องนี้<br>
+                2. ก๊อปปี้ลิงก์ <code>https://...</code> มาใส่ช่องด้านบนแล้วกดปุ่มอัปเดต<br>
+                3. สแกนเข้าโปรแกรมได้ทันทีจากมือถือทุกเครื่องทั่วโลก!
+            </p>
+        </div>
+        <div class="troubleshoot" style="background: rgba(255,255,255,0.05); color: #cbd5e1; border-color: rgba(255,255,255,0.1);">
+            <strong>⚠️ สแกนไม่ติด?</strong>
+            <ul style="font-size: 12px; margin-top: 8px; opacity: 0.8;">
+                <li>ต้องต่อ WiFi วงเดียวกับคอมพิวเตอร์</li>
+                <li>เช็ค IP ให้ตรงกับเครื่องคอมพิวเตอร์ที่รัน XAMPP</li>
+                <li>ลองปิด Windows Firewall ชั่วคราวเพื่อทดสอบ</li>
+            </ul>
+        </div>
+        <?php else: ?>
+        <div class="troubleshoot" style="background: rgba(40, 167, 69, 0.15); border-color: rgba(40, 167, 69, 0.3); color: #a3cfbb;">
+            <strong style="color: #fff;">✅ โหมดออนไลน์พร้อมใช้งาน!</strong><br>
+            คุณสามารถแชร์ QR นี้ หรือส่งลิงก์ด้านบนให้ผู้อื่นเข้าจากที่ไหนก็ได้ผ่านอินเทอร์เน็ต
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <a href="index.php" class="back-link"><i class="fas fa-arrow-left"></i> กลับหน้าหลัก</a>
+
+</body>
+</html>

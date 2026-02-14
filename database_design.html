@@ -1,0 +1,185 @@
+<?php
+include("config.php");
+?>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โครงสร้างฐานข้อมูล (Database Schema)</title>
+<style>
+:root{--g1:#0a1628;--g2:#1a2d50;--g3:#274472;--g4:#3a6098}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(135deg,var(--g1),var(--g2),var(--g3));min-height:100vh;padding-bottom:80px;color:#333}
+.hd{background:rgba(0,0,0,.2);color:#fff;padding:20px;text-align:center}
+.hd h2{margin:0;display:flex;align-items:center;justify-content:center;gap:10px}
+.wrap{max-width:1100px;margin:30px auto;padding:0 15px}
+.box{background:#fff;padding:30px;border-radius:16px;box-shadow:0 15px 40px rgba(0,0,0,.25);margin-bottom:30px}
+.box h3{color:var(--g2);border-bottom:2px solid var(--g4);padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center}
+.box h3 a{font-size:14px;background:var(--g3);color:#fff;padding:5px 15px;border-radius:20px;text-decoration:none;transition:all 0.3s}
+.box h3 a:hover{background:var(--g2);transform:scale(1.05)}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{padding:12px;text-align:left;border-bottom:1px solid #eee}
+th{background:var(--g2);color:#fff;font-weight:600}
+td{color:#333;font-size:14px}
+tr:hover td{background:#f0f4ff}
+.pk{color:#c0392b;font-weight:bold}
+.type{color:#2980b9;font-family:consolas,monospace}
+.nav-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,0.98);padding:12px 20px;box-shadow:0 -4px 20px rgba(0,0,0,0.15);display:flex;justify-content:center;align-items:center;gap:15px;z-index:1000}
+.nav-btn{padding:10px 20px;border-radius:8px;text-decoration:none;color:#fff;background:var(--g3);transition:all 0.3s}
+.nav-btn:hover{background:var(--g2);transform:translateY(-2px)}
+.toc{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;justify-content:center}
+.toc a{background:rgba(255,255,255,0.2);color:#fff;padding:8px 16px;border-radius:20px;text-decoration:none;border:1px solid rgba(255,255,255,0.5);transition:all 0.3s}
+.toc a:hover{background:#fff;color:var(--g2)}
+</style>
+</head>
+<body>
+
+<div class="hd">
+    <h2>📂 โครงสร้างฐานข้อมูล (Database Schema)</h2>
+    <p>รายละเอียดตารางในฐานข้อมูล apartment_db ทั้งหมด</p>
+    <div class="toc">
+        <a href="#users">Users</a>
+        <a href="#owner">Owner</a>
+        <a href="#room">Room</a>
+        <a href="#tenant">Tenant</a>
+        <a href="#contract">Contract</a>
+        <a href="#payment">Payment</a>
+        <a href="#receipt">Receipt</a>
+    </div>
+</div>
+
+<div class="wrap">
+
+    <!-- 1. Users Table -->
+    <div class="box" id="users">
+        <h3>
+            1. ตารางข้อมูลผู้ใช้งาน (users)
+            <a href="users.php">จัดการข้อมูล ➡️</a>
+        </h3>
+        <p>เก็บข้อมูลผู้ดูแลระบบและเจ้าหน้าที่สำหรับ Login เข้าสู่ระบบ</p>
+        <table>
+            <tr><th>Field Name</th><th>Type</th><th>Key</th><th>Null</th><th>Description</th></tr>
+            <tr><td>user_id</td><td class="type">int(11)</td><td class="pk">PK</td><td>NO</td><td>รหัสผู้ใช้งาน (Auto Increment)</td></tr>
+            <tr><td>username</td><td class="type">varchar(50)</td><td>UNI</td><td>NO</td><td>ชื่อบัญชีผู้ใช้</td></tr>
+            <tr><td>password</td><td class="type">varchar(255)</td><td></td><td>NO</td><td>รหัสผ่าน (Hash)</td></tr>
+            <tr><td>fullname</td><td class="type">varchar(100)</td><td></td><td>NO</td><td>ชื่อ-นามสกุล</td></tr>
+            <tr><td>role</td><td class="type">enum('admin','staff')</td><td></td><td>NO</td><td>ระดับสิทธิ์</td></tr>
+            <tr><td>created_at</td><td class="type">timestamp</td><td></td><td>NO</td><td>วันที่สร้าง</td></tr>
+        </table>
+    </div>
+
+    <!-- 2. Owner Table -->
+    <div class="box" id="owner">
+        <h3>
+            2. ตารางข้อมูลเจ้าของหอพัก (owner)
+            <a href="owner.php">จัดการข้อมูล ➡️</a>
+        </h3>
+        <p>เก็บข้อมูลเจ้าของอพาร์ตเมนต์</p>
+        <table>
+            <tr><th>Field Name</th><th>Type</th><th>Key</th><th>Null</th><th>Description</th></tr>
+            <tr><td>owner_id</td><td class="type">int(11)</td><td class="pk">PK</td><td>NO</td><td>รหัสเจ้าของ</td></tr>
+            <tr><td>owner_name</td><td class="type">varchar(100)</td><td></td><td>NO</td><td>ชื่อเจ้าของ</td></tr>
+            <tr><td>phone</td><td class="type">varchar(50)</td><td></td><td>NO</td><td>เบอร์โทรศัพท์</td></tr>
+            <tr><td>email</td><td class="type">varchar(100)</td><td></td><td>NO</td><td>อีเมล</td></tr>
+        </table>
+    </div>
+
+    <!-- 3. Room Table -->
+    <div class="box" id="room">
+        <h3>
+            3. ตารางข้อมูลห้องพัก (room)
+            <a href="room.php">จัดการข้อมูล ➡️</a>
+        </h3>
+        <p>เก็บรายละเอียดห้องพักทั้งหมด</p>
+        <table>
+            <tr><th>Field Name</th><th>Type</th><th>Key</th><th>Null</th><th>Description</th></tr>
+            <tr><td>room_id</td><td class="type">int(11)</td><td class="pk">PK</td><td>NO</td><td>รหัสอ้างอิงห้อง</td></tr>
+            <tr><td>room_no</td><td class="type">varchar(20)</td><td>UNI</td><td>NO</td><td>เลขห้อง</td></tr>
+            <tr><td>room_type</td><td class="type">varchar(50)</td><td></td><td>NO</td><td>ประเภทห้อง</td></tr>
+            <tr><td>price</td><td class="type">decimal(10,2)</td><td></td><td>NO</td><td>ราคาค่าเช่า</td></tr>
+            <tr><td>status</td><td class="type">enum</td><td></td><td>NO</td><td>สถานะ (Available, Occupied, Maintenance)</td></tr>
+            <tr><td>floor</td><td class="type">int(11)</td><td></td><td>YES</td><td>ชั้น</td></tr>
+            <tr><td>details</td><td class="type">text</td><td></td><td>YES</td><td>รายละเอียดเพิ่มเติม</td></tr>
+        </table>
+    </div>
+
+    <!-- 4. Tenant Table -->
+    <div class="box" id="tenant">
+        <h3>
+            4. ตารางข้อมูลผู้เช่า (tenant)
+            <a href="tenant.php">จัดการข้อมูล ➡️</a>
+        </h3>
+        <p>เก็บประวัติและข้อมูลส่วนตัวของผู้เช่า</p>
+        <table>
+            <tr><th>Field Name</th><th>Type</th><th>Key</th><th>Null</th><th>Description</th></tr>
+            <tr><td>tenant_id</td><td class="type">int(11)</td><td class="pk">PK</td><td>NO</td><td>รหัสผู้เช่า</td></tr>
+            <tr><td>name</td><td class="type">varchar(100)</td><td></td><td>NO</td><td>ชื่อ-นามสกุล</td></tr>
+            <tr><td>id_card</td><td class="type">varchar(20)</td><td></td><td>YES</td><td>เลขบัตรประชาชน</td></tr>
+            <tr><td>phone</td><td class="type">varchar(50)</td><td></td><td>NO</td><td>เบอร์โทรศัพท์</td></tr>
+            <tr><td>room_no</td><td class="type">varchar(50)</td><td></td><td>NO</td><td>เลขห้องพัก</td></tr>
+            <tr><td>room_type</td><td class="type">varchar(50)</td><td></td><td>YES</td><td>ประเภทห้อง (Backup)</td></tr>
+            <tr><td>check_in_date</td><td class="type">date</td><td></td><td>YES</td><td>วันที่เข้าพัก</td></tr>
+            <tr><td>created_at</td><td class="type">timestamp</td><td></td><td>NO</td><td>วันที่บันทึก</td></tr>
+        </table>
+    </div>
+
+    <!-- 5. Contract Table -->
+    <div class="box" id="contract">
+        <h3>
+            5. ตารางข้อมูลสัญญาเช่า (contract)
+            <a href="contract2.php">จัดการข้อมูล ➡️</a>
+        </h3>
+        <p>เก็บรายละเอียดสัญญาเช่าของห้องพัก</p>
+        <table>
+            <tr><th>Field Name</th><th>Type</th><th>Key</th><th>Null</th><th>Description</th></tr>
+            <tr><td>contract_id</td><td class="type">int(11)</td><td class="pk">PK</td><td>NO</td><td>รหัสสัญญา</td></tr>
+            <tr><td>tenant_id</td><td class="type">int(11)</td><td>FK</td><td>NO</td><td>รหัสผู้เช่า (อ้างอิง tenant)</td></tr>
+            <tr><td>start_date</td><td class="type">date</td><td></td><td>NO</td><td>วันเริ่มสัญญา</td></tr>
+            <tr><td>end_date</td><td class="type">date</td><td></td><td>NO</td><td>วันสิ้นสุดสัญญา</td></tr>
+            <tr><td>rent</td><td class="type">int(255)</td><td></td><td>NO</td><td>ค่าเช่าที่ตกลง (บาท)</td></tr>
+        </table>
+    </div>
+
+    <!-- 6. Payment Table -->
+    <div class="box" id="payment">
+        <h3>
+            6. ตารางประวัติการชำระเงิน (payment)
+            <a href="payment.php">จัดการข้อมูล ➡️</a>
+        </h3>
+        <p>เก็บประวัติการชำระเงินค่าเช่า</p>
+        <table>
+            <tr><th>Field Name</th><th>Type</th><th>Key</th><th>Null</th><th>Description</th></tr>
+            <tr><td>payment_id</td><td class="type">int(11)</td><td class="pk">PK</td><td>NO</td><td>รหัสการชำระเงิน</td></tr>
+            <tr><td>tenant_name</td><td class="type">varchar(100)</td><td></td><td>NO</td><td>ชื่อผู้เช่า</td></tr>
+            <tr><td>room_no</td><td class="type">varchar(20)</td><td></td><td>NO</td><td>เลขห้อง</td></tr>
+            <tr><td>amount</td><td class="type">decimal(10,2)</td><td></td><td>NO</td><td>ยอดเงินที่ชำระ</td></tr>
+            <tr><td>payment_type</td><td class="type">varchar(50)</td><td></td><td>NO</td><td>ประเภทการชำระ (เงินสด/โอน)</td></tr>
+            <tr><td>pay_date</td><td class="type">timestamp</td><td></td><td>NO</td><td>วันที่ชำระเงิน</td></tr>
+        </table>
+    </div>
+
+    <!-- 7. Receipt Table -->
+    <div class="box" id="receipt">
+        <h3>
+            7. ตารางข้อมูลใบเสร็จ (receipt)
+            <a href="receipt.php">จัดการข้อมูล ➡️</a>
+        </h3>
+        <p>เก็บข้อมูลการออกใบเสร็จรับเงิน</p>
+        <table>
+            <tr><th>Field Name</th><th>Type</th><th>Key</th><th>Null</th><th>Description</th></tr>
+            <tr><td>receipt_id</td><td class="type">int(11)</td><td class="pk">PK</td><td>NO</td><td>รหัสใบเสร็จ</td></tr>
+            <tr><td>tenant_id</td><td class="type">int(11)</td><td>FK</td><td>NO</td><td>รหัสผู้เช่า</td></tr>
+            <tr><td>pay_date</td><td class="type">date</td><td></td><td>NO</td><td>วันที่ในใบเสร็จ</td></tr>
+            <tr><td>amount</td><td class="type">int(11)</td><td></td><td>NO</td><td>ยอดเงิน</td></tr>
+        </table>
+    </div>
+
+</div>
+
+<div class="nav-bar">
+    <a href="index.php" class="nav-btn">🏠 กลับหน้าหลัก (Home)</a>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1097 @@
+<?php
+require_once 'auth.php';
+requireLogin();
+require_once 'config.php';
+
+// ดึงข้อมูลสถิติ
+$total_tenants = $total_rooms = $total_contracts = $total_payments = 0;
+$r = mysqli_query($conn, "SELECT COUNT(*) as c FROM tenant"); if($r) $total_tenants = mysqli_fetch_assoc($r)['c'];
+$r = mysqli_query($conn, "SELECT COUNT(DISTINCT room_no) as c FROM tenant"); if($r) $total_rooms = mysqli_fetch_assoc($r)['c'];
+$r = mysqli_query($conn, "SELECT COUNT(*) as c FROM contract"); if($r) $total_contracts = mysqli_fetch_assoc($r)['c'];
+$r = mysqli_query($conn, "SELECT COUNT(*) as c FROM payment"); if($r) $total_payments = mysqli_fetch_assoc($r)['c'];
+
+$fullname = getCurrentFullname();
+$username = getCurrentUsername();
+$role = getCurrentRole();
+$roleLabel = ($role === 'admin') ? '👑 ผู้ดูแลระบบ' : '👤 ผู้ใช้งานทั่วไป';
+$initial = mb_substr($fullname, 0, 1, 'UTF-8');
+?>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ยินดีต้อนรับ - ระบบจัดการห้องเช่าอพาร์ตเมนต์</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+          :root {
+            --g1: #0a1628;
+            --g2: #1a2d50;
+            --g3: #274472;
+            --g4: #3a6098;
+            --g5: #5b8ec2;
+            --g6: #93b8d9;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Prompt', 'Segoe UI', sans-serif;
+            background: #050f1e;
+
+        /* ============================
+           NAVBAR
+        ============================ */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 50px;
+            height: 70px;
+            background: transparent;
+            transition: background 0.4s, box-shadow 0.4s;
+        }
+
+        .navbar.scrolled {
+            background: rgba(13,31,18,0.95);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: white;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .nav-logo .logo-circle {
+            width: 38px;
+            height: 38px;
+            background: rgba(255,255,255,0.12);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-links a {
+            color: rgba(255,255,255,0.75);
+            text-decoration: none;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: white;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .nav-links a.active::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 3px;
+            background: var(--g5);
+            border-radius: 3px;
+        }
+
+        .nav-avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--g4), var(--g2));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 700;
+            margin-left: 8px;
+            border: 2px solid rgba(255,255,255,0.25);
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .nav-avatar:hover {
+            transform: scale(1.1);
+        }
+
+        /* ============================
+           HERO SECTION
+        ============================ */
+        .hero {
+            position: relative;
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        /* Sky gradient background */
+        .hero-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                180deg,
+                #050f1e 0%,
+                #0a1628 15%,
+                #1a2d50 30%,
+                #274472 50%,
+                #3a6098 65%,
+                #5b8ec2 80%,
+                #93b8d9 100%
+            );
+            z-index: 0;
+        }
+
+        /* Stars */
+        .stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            z-index: 1;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        /* Moon */
+        .moon {
+            position: absolute;
+            top: 12%;
+            right: 15%;
+            width: 90px;
+            height: 90px;
+            background: radial-gradient(circle at 35% 35%, #ffffff, #e8f5e9, #c8e6c9);
+            border-radius: 50%;
+            z-index: 2;
+            box-shadow:
+                0 0 20px rgba(255,255,255,0.3),
+                0 0 60px rgba(200,230,201,0.2),
+                0 0 100px rgba(102,187,106,0.1);
+            animation: moonGlow 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes moonGlow {
+            0% { box-shadow: 0 0 20px rgba(255,255,255,0.3), 0 0 60px rgba(200,230,201,0.2); }
+            100% { box-shadow: 0 0 30px rgba(255,255,255,0.5), 0 0 80px rgba(200,230,201,0.3); }
+        }
+
+        /* Clouds */
+        .cloud {
+            position: absolute;
+            z-index: 2;
+            opacity: 0.08;
+        }
+
+        .cloud-1 {
+            top: 20%;
+            left: -5%;
+            animation: cloudDrift 40s linear infinite;
+        }
+
+        .cloud-2 {
+            top: 35%;
+            right: -10%;
+            animation: cloudDrift2 55s linear infinite;
+        }
+
+        @keyframes cloudDrift {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(110vw); }
+        }
+
+        @keyframes cloudDrift2 {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-110vw); }
+        }
+
+        /* Mountains SVG layer */
+        .mountains {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 3;
+        }
+
+        /* Trees SVG layer */
+        .trees {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 4;
+        }
+
+        /* Content */
+        .hero-content {
+            position: relative;
+            z-index: 10;
+            max-width: 700px;
+            padding: 0 24px;
+            margin-top: -60px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            padding: 8px 18px;
+            border-radius: 30px;
+            font-size: 13px;
+            color: var(--g6);
+            margin-bottom: 20px;
+            backdrop-filter: blur(8px);
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero-title {
+            font-size: 52px;
+            font-weight: 800;
+            line-height: 1.15;
+            margin-bottom: 18px;
+            letter-spacing: -1px;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+            text-shadow: 0 4px 30px rgba(0,0,0,0.3);
+        }
+
+        .hero-title .highlight {
+            background: linear-gradient(135deg, var(--g5), #81c784, var(--g6));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-desc {
+            font-size: 16px;
+            color: rgba(255,255,255,0.75);
+            line-height: 1.7;
+            max-width: 550px;
+            margin: 0 auto 30px;
+            font-weight: 300;
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero-user {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            padding: 12px 24px;
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            margin-bottom: 28px;
+            animation: fadeInUp 0.8s ease-out 0.5s both;
+        }
+
+        .hero-user-avatar {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--g4), var(--g2));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .hero-user-info {
+            text-align: left;
+        }
+
+        .hero-user-name {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .hero-user-role {
+            font-size: 12px;
+            color: var(--g5);
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 0.8s ease-out 0.6s both;
+        }
+
+        .btn-hero {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 15px 32px;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-hero-primary {
+            background: linear-gradient(135deg, var(--g4), var(--g3));
+            color: white;
+            box-shadow: 0 4px 20px rgba(5, 3, 51, 0.4);
+        }
+
+        .btn-hero-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(67, 90, 160, 0.5);
+        }
+
+        .btn-hero-secondary {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-hero-secondary:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.35);
+            transform: translateY(-3px);
+        }
+
+        /* ============================
+           STATS SECTION
+        ============================ */
+        .stats-section {
+            position: relative;
+            z-index: 20;
+            background: #050f1e;
+            padding: 60px 20px;
+        }
+
+        .stats-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .stats-title {
+            text-align: center;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: white;
+        }
+
+        .stats-subtitle {
+            text-align: center;
+            font-size: 14px;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 40px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 18px;
+            padding: 28px 20px;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--g4), var(--g5));
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .stat-card:hover {
+            background: rgba(255,255,255,0.08);
+            transform: translateY(-6px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+            border-color: rgba(17, 4, 110, 0.2);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+
+        .stat-value {
+            font-size: 30px;
+            font-weight: 800;
+            color: var(--g5);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: rgba(255,255,255,0.45);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+
+        /* ============================
+           USER INFO SECTION
+        ============================ */
+        .info-section {
+            background: linear-gradient(180deg, #050f1e, #0a1628);
+            padding: 60px 20px 80px;
+        }
+
+        .info-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .info-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px;
+            padding: 32px;
+            backdrop-filter: blur(10px);
+        }
+
+        .info-card-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 24px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .info-card-avatar {
+            width: 54px;
+            height: 54px;
+            background: linear-gradient(135deg, var(--g4), var(--g2));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .info-card-name {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .info-card-role {
+            font-size: 13px;
+            color: var(--g5);
+        }
+
+        .info-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 14px;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-row-icon {
+            font-size: 18px;
+            width: 28px;
+            text-align: center;
+            margin-right: 10px;
+        }
+
+        .info-row-label {
+            font-weight: 500;
+            color: rgba(255,255,255,0.5);
+            min-width: 100px;
+        }
+
+        .info-row-value {
+            color: white;
+            font-weight: 500;
+        }
+
+        .info-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        .info-actions a {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 12px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+
+        .info-actions .btn-manage {
+            background: linear-gradient(135deg, var(--g4), var(--g3));
+            color: white;
+            box-shadow: 0 4px 15px rgba(39,68,114,0.3);
+        }
+
+        .info-actions .btn-manage:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(39,68,114,0.4);
+        }
+
+        .info-actions .btn-logout {
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .info-actions .btn-logout:hover {
+            background: rgba(239,68,68,0.15);
+            color: #fca5a5;
+            border-color: rgba(239,68,68,0.3);
+        }
+
+        /* ============================
+           FOOTER
+        ============================ */
+        .footer {
+            background: #02060c;
+            padding: 24px;
+            text-align: center;
+            color: rgba(255,255,255,0.3);
+            font-size: 12px;
+            border-top: 1px solid rgba(255,255,255,0.04);
+        }
+
+        /* ============================
+           RESPONSIVE
+        ============================ */
+        @media (max-width: 768px) {
+            .navbar { padding: 0 20px; }
+            .nav-logo span { display: none; }
+            .nav-links a { padding: 6px 12px; font-size: 13px; }
+            .hero-title { font-size: 34px; }
+            .hero-desc { font-size: 14px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .moon { width: 60px; height: 60px; top: 10%; right: 10%; }
+        }
+
+        @media (max-width: 480px) {
+            .hero-title { font-size: 28px; }
+            .hero-actions { flex-direction: column; align-items: center; }
+            .btn-hero { width: 100%; justify-content: center; }
+            .info-actions { flex-direction: column; }
+        }
+
+        /* Scroll reveal */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== NAVBAR ===== -->
+<nav class="navbar" id="navbar">
+    <a href="index.php" class="nav-logo">
+        <div class="logo-circle">🏠</div>
+        <span>Apartment</span>
+    </a>
+    <div class="nav-links">
+        <a href="index.php">Home</a>
+        <a href="welcome.php" class="active">Welcome</a>
+        <a href="tenant.php">Tenants</a>
+        <a href="payment.php">Payment</a>
+        <a href="share.php" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">📱 Mobile</a>
+        <a href="logout.php">Logout</a>
+        <div class="nav-avatar"><?php echo htmlspecialchars($initial); ?></div>
+    </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+    <div class="hero-bg"></div>
+
+    <!-- Stars -->
+    <div class="stars" id="stars"></div>
+
+    <!-- Moon -->
+    <div class="moon"></div>
+
+    <!-- Cloud SVGs -->
+    <svg class="cloud cloud-1" width="300" height="80" viewBox="0 0 300 80">
+        <ellipse cx="80" cy="50" rx="60" ry="25" fill="white"/>
+        <ellipse cx="140" cy="40" rx="70" ry="30" fill="white"/>
+        <ellipse cx="200" cy="50" rx="55" ry="22" fill="white"/>
+        <ellipse cx="110" cy="55" rx="50" ry="20" fill="white"/>
+    </svg>
+
+    <svg class="cloud cloud-2" width="250" height="70" viewBox="0 0 250 70">
+        <ellipse cx="70" cy="45" rx="50" ry="20" fill="white"/>
+        <ellipse cx="125" cy="35" rx="60" ry="25" fill="white"/>
+        <ellipse cx="180" cy="45" rx="45" ry="18" fill="white"/>
+    </svg>
+
+    <!-- Mountains -->
+    <svg class="mountains" viewBox="0 0 1440 400" preserveAspectRatio="none" style="height: 50%;">
+        <!-- Far mountains -->
+        <path d="M0,400 L0,280 L120,180 L200,220 L320,120 L420,200 L500,140 L600,190 L720,80 L840,160 L920,100 L1040,180 L1120,130 L1200,170 L1320,90 L1440,200 L1440,400 Z" fill="rgba(10,22,40,0.6)"/>
+        <!-- Mid mountains -->
+        <path d="M0,400 L0,300 L80,250 L180,290 L280,200 L380,260 L480,180 L560,240 L680,160 L780,220 L880,170 L980,230 L1080,190 L1160,240 L1280,180 L1360,230 L1440,260 L1440,400 Z" fill="rgba(26,45,80,0.7)"/>
+        <!-- Near mountains -->
+        <path d="M0,400 L0,330 L100,290 L200,320 L300,260 L400,300 L520,240 L620,280 L740,230 L820,270 L920,240 L1020,280 L1140,250 L1240,290 L1340,260 L1440,300 L1440,400 Z" fill="rgba(39,68,114,0.85)"/>
+    </svg>
+
+    <!-- Trees & Buildings -->
+    <svg class="trees" viewBox="0 0 1440 250" preserveAspectRatio="none" style="height: 30%;">
+        <!-- Ground -->
+        <path d="M0,250 L0,180 Q100,160 200,170 Q300,140 400,160 Q500,130 600,150 Q700,120 800,145 Q900,125 1000,140 Q1100,120 1200,135 Q1300,115 1440,140 L1440,250 Z" fill="#050f1e"/>
+        
+        <!-- Tree cluster far left -->
+        <polygon points="20,182 35,100 50,182" fill="#02060c"/>
+        <polygon points="28,182 35,118 42,182" fill="#0a1420"/>
+        <polygon points="50,180 65,95 80,180" fill="#050d18"/>
+
+        <!-- ===== APARTMENT BUILDING LEFT ===== -->
+        <!-- Main building body -->
+        <rect x="100" y="70" width="100" height="112" fill="#0d1b2a" rx="2"/>
+        <!-- Building top decoration -->
+        <rect x="98" y="66" width="104" height="6" fill="#0a1420" rx="1"/>
+        <!-- Rooftop structures -->
+        <rect x="130" y="52" width="20" height="16" fill="#0a1420"/>
+        <rect x="160" y="56" width="12" height="12" fill="#0a1420"/>
+        <!-- Antenna -->
+        <rect x="139" y="40" width="2" height="14" fill="#0a1420"/>
+        <circle cx="140" cy="38" r="3" fill="#ef4444" opacity="0.6">
+            <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        
+        <!-- Windows Row 1 (top) -->
+        <rect x="110" y="76" width="10" height="10" fill="rgba(255,220,100,0.5)" rx="1"/>
+        <rect x="125" y="76" width="10" height="10" fill="rgba(255,220,100,0.3)" rx="1"/>
+        <rect x="140" y="76" width="10" height="10" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="155" y="76" width="10" height="10" fill="rgba(255,220,100,0.15)" rx="1"/>
+        <rect x="170" y="76" width="10" height="10" fill="rgba(255,220,100,0.45)" rx="1"/>
+        <rect x="185" y="76" width="10" height="10" fill="rgba(255,220,100,0.35)" rx="1"/>
+        
+        <!-- Windows Row 2 -->
+        <rect x="110" y="92" width="10" height="10" fill="rgba(255,220,100,0.2)" rx="1"/>
+        <rect x="125" y="92" width="10" height="10" fill="rgba(255,220,100,0.55)" rx="1"/>
+        <rect x="140" y="92" width="10" height="10" fill="rgba(255,220,100,0.4)" rx="1"/>
+        <rect x="155" y="92" width="10" height="10" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="170" y="92" width="10" height="10" fill="rgba(255,220,100,0.1)" rx="1"/>
+        <rect x="185" y="92" width="10" height="10" fill="rgba(255,220,100,0.5)" rx="1"/>
+        
+        <!-- Windows Row 3 -->
+        <rect x="110" y="108" width="10" height="10" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="125" y="108" width="10" height="10" fill="rgba(255,220,100,0.15)" rx="1"/>
+        <rect x="140" y="108" width="10" height="10" fill="rgba(255,220,100,0.5)" rx="1"/>
+        <rect x="155" y="108" width="10" height="10" fill="rgba(255,220,100,0.35)" rx="1"/>
+        <rect x="170" y="108" width="10" height="10" fill="rgba(255,220,100,0.55)" rx="1"/>
+        <rect x="185" y="108" width="10" height="10" fill="rgba(255,220,100,0.25)" rx="1"/>
+        
+        <!-- Windows Row 4 -->
+        <rect x="110" y="124" width="10" height="10" fill="rgba(255,220,100,0.3)" rx="1"/>
+        <rect x="125" y="124" width="10" height="10" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="140" y="124" width="10" height="10" fill="rgba(255,220,100,0.45)" rx="1"/>
+        <rect x="155" y="124" width="10" height="10" fill="rgba(255,220,100,0.1)" rx="1"/>
+        <rect x="170" y="124" width="10" height="10" fill="rgba(255,220,100,0.5)" rx="1"/>
+        <rect x="185" y="124" width="10" height="10" fill="rgba(255,220,100,0.6)" rx="1"/>
+        
+        <!-- Windows Row 5 -->
+        <rect x="110" y="140" width="10" height="10" fill="rgba(255,220,100,0.5)" rx="1"/>
+        <rect x="125" y="140" width="10" height="10" fill="rgba(255,220,100,0.2)" rx="1"/>
+        <rect x="140" y="140" width="10" height="10" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="155" y="140" width="10" height="10" fill="rgba(255,220,100,0.4)" rx="1"/>
+        <rect x="170" y="140" width="10" height="10" fill="rgba(255,220,100,0.15)" rx="1"/>
+        <rect x="185" y="140" width="10" height="10" fill="rgba(255,220,100,0.55)" rx="1"/>
+
+        <!-- Building entrance -->
+        <rect x="138" y="160" width="24" height="22" fill="#162a45" rx="2"/>
+        <rect x="141" y="162" width="8" height="20" fill="rgba(255,220,100,0.2)" rx="1"/>
+        <rect x="151" y="162" width="8" height="20" fill="rgba(255,220,100,0.2)" rx="1"/>
+        
+        <!-- Building glow -->
+        <rect x="100" y="70" width="100" height="112" fill="url(#buildingGlow1)" opacity="0.15"/>
+
+        <!-- Trees around left building -->
+        <polygon points="210,178 225,110 240,178" fill="#02060c"/>
+        <polygon points="218,178 225,125 232,178" fill="#0e2213"/>
+        <polygon points="240,176 255,105 270,176" fill="#0c1e11"/>
+        <polygon points="75,180 90,115 105,180" fill="#0a1a0f"/>
+
+        <!-- Tree cluster center-left -->
+        <polygon points="320,165 340,70 360,165" fill="#0a1a0f"/>
+        <polygon points="330,165 340,90 350,165" fill="#0e2213"/>
+        <polygon points="360,162 378,72 396,162" fill="#0c1e11"/>
+        <polygon points="368,162 378,95 388,162" fill="#0e2213"/>
+        <polygon points="290,168 305,85 320,168" fill="#0a1a0f"/>
+        
+        <!-- Tree cluster center -->
+        <polygon points="550,156 570,55 590,156" fill="#0a1a0f"/>
+        <polygon points="560,156 570,78 580,156" fill="#0e2213"/>
+        <polygon points="590,153 608,60 626,153" fill="#0c1e11"/>
+        <polygon points="520,158 535,70 550,158" fill="#0a1a0f"/>
+
+        <!-- Trees before right building -->
+        <polygon points="850,148 868,55 886,148" fill="#0a1a0f"/>
+        <polygon points="860,148 868,78 876,148" fill="#0e2213"/>
+        <polygon points="890,145 905,60 920,145" fill="#0c1e11"/>
+        
+        <!-- ===== APARTMENT BUILDING RIGHT (Larger) ===== -->
+        <!-- Main building body -->
+        <rect x="950" y="40" width="120" height="145" fill="#0f2818" rx="2"/>
+        <!-- Side extension -->
+        <rect x="1070" y="75" width="50" height="110" fill="#0c2215" rx="2"/>
+        
+        <!-- Building top decoration -->
+        <rect x="948" y="36" width="124" height="6" fill="#0b2014" rx="1"/>
+        <rect x="1068" y="71" width="54" height="6" fill="#0b2014" rx="1"/>
+        
+        <!-- Rooftop structures -->
+        <rect x="985" y="18" width="24" height="20" fill="#0b2014"/>
+        <rect x="1020" y="24" width="14" height="14" fill="#0b2014"/>
+        <!-- Antenna -->
+        <rect x="996" y="4" width="2" height="16" fill="#0e2213"/>
+        <circle cx="997" cy="2" r="3" fill="#ef4444" opacity="0.6">
+            <animate attributeName="opacity" values="0.6;0.2;0.6" dur="1.5s" repeatCount="indefinite"/>
+        </circle>
+        
+        <!-- Main building windows - Row 1 -->
+        <rect x="960" y="46" width="11" height="11" fill="rgba(255,220,100,0.5)" rx="1"/>
+        <rect x="976" y="46" width="11" height="11" fill="rgba(255,220,100,0.3)" rx="1"/>
+        <rect x="992" y="46" width="11" height="11" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="1008" y="46" width="11" height="11" fill="rgba(255,220,100,0.2)" rx="1"/>
+        <rect x="1024" y="46" width="11" height="11" fill="rgba(255,220,100,0.45)" rx="1"/>
+        <rect x="1040" y="46" width="11" height="11" fill="rgba(255,220,100,0.55)" rx="1"/>
+        <rect x="1056" y="46" width="11" height="11" fill="rgba(255,220,100,0.15)" rx="1"/>
+        
+        <!-- Main building windows - Row 2 -->
+        <rect x="960" y="63" width="11" height="11" fill="rgba(255,220,100,0.2)" rx="1"/>
+        <rect x="976" y="63" width="11" height="11" fill="rgba(255,220,100,0.55)" rx="1"/>
+        <rect x="992" y="63" width="11" height="11" fill="rgba(255,220,100,0.1)" rx="1"/>
+        <rect x="1008" y="63" width="11" height="11" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="1024" y="63" width="11" height="11" fill="rgba(255,220,100,0.35)" rx="1"/>
+        <rect x="1040" y="63" width="11" height="11" fill="rgba(255,220,100,0.5)" rx="1"/>
+        <rect x="1056" y="63" width="11" height="11" fill="rgba(255,220,100,0.4)" rx="1"/>
+        
+        <!-- Main building windows - Row 3 -->
+        <rect x="960" y="80" width="11" height="11" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="976" y="80" width="11" height="11" fill="rgba(255,220,100,0.15)" rx="1"/>
+        <rect x="992" y="80" width="11" height="11" fill="rgba(255,220,100,0.45)" rx="1"/>
+        <rect x="1008" y="80" width="11" height="11" fill="rgba(255,220,100,0.5)" rx="1"/>
+        <rect x="1024" y="80" width="11" height="11" fill="rgba(255,220,100,0.3)" rx="1"/>
+        <rect x="1040" y="80" width="11" height="11" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="1056" y="80" width="11" height="11" fill="rgba(255,220,100,0.2)" rx="1"/>
+        
+        <!-- Main building windows - Row 4 -->
+        <rect x="960" y="97" width="11" height="11" fill="rgba(255,220,100,0.35)" rx="1"/>
+        <rect x="976" y="97" width="11" height="11" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="992" y="97" width="11" height="11" fill="rgba(255,220,100,0.5)" rx="1"/>
+        <rect x="1008" y="97" width="11" height="11" fill="rgba(255,220,100,0.15)" rx="1"/>
+        <rect x="1024" y="97" width="11" height="11" fill="rgba(255,220,100,0.4)" rx="1"/>
+        <rect x="1040" y="97" width="11" height="11" fill="rgba(255,220,100,0.55)" rx="1"/>
+        <rect x="1056" y="97" width="11" height="11" fill="rgba(255,220,100,0.3)" rx="1"/>
+        
+        <!-- Main building windows - Row 5 -->
+        <rect x="960" y="114" width="11" height="11" fill="rgba(255,220,100,0.5)" rx="1"/>
+        <rect x="976" y="114" width="11" height="11" fill="rgba(255,220,100,0.25)" rx="1"/>
+        <rect x="992" y="114" width="11" height="11" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="1008" y="114" width="11" height="11" fill="rgba(255,220,100,0.4)" rx="1"/>
+        <rect x="1024" y="114" width="11" height="11" fill="rgba(255,220,100,0.1)" rx="1"/>
+        <rect x="1040" y="114" width="11" height="11" fill="rgba(255,220,100,0.55)" rx="1"/>
+        <rect x="1056" y="114" width="11" height="11" fill="rgba(255,220,100,0.45)" rx="1"/>
+        
+        <!-- Main building windows - Row 6 -->
+        <rect x="960" y="131" width="11" height="11" fill="rgba(255,220,100,0.15)" rx="1"/>
+        <rect x="976" y="131" width="11" height="11" fill="rgba(255,220,100,0.5)" rx="1"/>
+        <rect x="992" y="131" width="11" height="11" fill="rgba(255,220,100,0.35)" rx="1"/>
+        <rect x="1008" y="131" width="11" height="11" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="1024" y="131" width="11" height="11" fill="rgba(255,220,100,0.4)" rx="1"/>
+        <rect x="1040" y="131" width="11" height="11" fill="rgba(255,220,100,0.2)" rx="1"/>
+        <rect x="1056" y="131" width="11" height="11" fill="rgba(255,220,100,0.55)" rx="1"/>
+        
+        <!-- Side extension windows -->
+        <rect x="1078" y="82" width="10" height="10" fill="rgba(255,220,100,0.4)" rx="1"/>
+        <rect x="1093" y="82" width="10" height="10" fill="rgba(255,220,100,0.55)" rx="1"/>
+        <rect x="1108" y="82" width="10" height="10" fill="rgba(255,220,100,0.2)" rx="1"/>
+        
+        <rect x="1078" y="98" width="10" height="10" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="1093" y="98" width="10" height="10" fill="rgba(255,220,100,0.15)" rx="1"/>
+        <rect x="1108" y="98" width="10" height="10" fill="rgba(255,220,100,0.5)" rx="1"/>
+        
+        <rect x="1078" y="114" width="10" height="10" fill="rgba(255,220,100,0.3)" rx="1"/>
+        <rect x="1093" y="114" width="10" height="10" fill="rgba(255,220,100,0.6)" rx="1"/>
+        <rect x="1108" y="114" width="10" height="10" fill="rgba(255,220,100,0.45)" rx="1"/>
+        
+        <rect x="1078" y="130" width="10" height="10" fill="rgba(255,220,100,0.5)" rx="1"/>
+        <rect x="1093" y="130" width="10" height="10" fill="rgba(255,220,100,0.25)" rx="1"/>
+        <rect x="1108" y="130" width="10" height="10" fill="rgba(255,220,100,0.6)" rx="1"/>
+
+        <!-- Right building entrance -->
+        <rect x="995" y="155" width="28" height="30" fill="#1a3d22" rx="2"/>
+        <rect x="998" y="157" width="10" height="28" fill="rgba(255,220,100,0.25)" rx="1"/>
+        <rect x="1010" y="157" width="10" height="28" fill="rgba(255,220,100,0.25)" rx="1"/>
+        
+        <!-- Building sign/name plate -->
+        <rect x="990" y="148" width="40" height="8" fill="rgba(255,220,100,0.12)" rx="2"/>
+
+        <!-- Trees around right building -->
+        <polygon points="930,145 945,70 960,145" fill="#0a1a0f"/>
+        <polygon points="938,145 945,88 952,145" fill="#0e2213"/>
+        <polygon points="1130,142 1145,68 1160,142" fill="#0a1a0f"/>
+        <polygon points="1138,142 1145,85 1152,142" fill="#0e2213"/>
+        
+        <!-- Tree cluster far right -->
+        <polygon points="1200,140 1218,50 1236,140" fill="#0a1a0f"/>
+        <polygon points="1210,140 1218,72 1226,140" fill="#0e2213"/>
+        <polygon points="1240,138 1256,55 1272,138" fill="#0c1e11"/>
+        <polygon points="1280,136 1295,50 1310,136" fill="#0a1a0f"/>
+        <polygon points="1310,135 1325,55 1340,135" fill="#0c1e11"/>
+        <polygon points="1350,134 1365,52 1380,134" fill="#0a1a0f"/>
+        <polygon points="1380,133 1395,58 1410,133" fill="#0c1e11"/>
+        <polygon points="1410,132 1425,55 1440,132" fill="#0a1a0f"/>
+        
+        <!-- Gradient definitions for building glow -->
+        <defs>
+            <linearGradient id="buildingGlow1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="rgba(255,220,100,0.1)"/>
+                <stop offset="100%" stop-color="transparent"/>
+            </linearGradient>
+        </defs>
+        
+        <!-- Glow effects -->
+        <rect x="950" y="40" width="120" height="145" fill="url(#buildingGlow1)" opacity="0.2"/>
+    </svg>
+
+    <!-- Hero Content -->
+    <div class="hero-content">
+        <div class="hero-badge">
+            ✨ ระบบจัดการห้องเช่าอพาร์ตเมนต์
+        </div>
+        <h1 class="hero-title">
+            WELCOME TO<br>
+            <span class="highlight">OUR APARTMENT</span>
+        </h1>
+        <p class="hero-desc">
+            ยินดีต้อนรับเข้าสู่ระบบจัดการห้องเช่าอพาร์ตเมนต์
+            ระบบที่ช่วยให้การบริหารจัดการห้องเช่าเป็นเรื่องง่ายและมีประสิทธิภาพ
+        </p>
+        <div class="hero-user">
+            <div class="hero-user-avatar"><?php echo htmlspecialchars($initial); ?></div>
+            <div class="hero-user-info">
+                <div class="hero-user-name">🎉 สวัสดี คุณ<?php echo htmlspecialchars($fullname); ?></div>
+                <div class="hero-user-role"><?php echo $roleLabel; ?></div>
+            </div>
+        </div>
+        <div class="hero-actions">
+            <a href="index.php" class="btn-hero btn-hero-primary">🚀 เข้าสู่ระบบจัดการ</a>
+            <a href="#stats" class="btn-hero btn-hero-secondary">📊 ดูสถิติ</a>
+        </div>
+    </div>
+</section>
+
+<!-- ===== STATS ===== -->
+<section class="stats-section" id="stats">
+    <div class="stats-container">
+        <h2 class="stats-title reveal">📊 ภาพรวมระบบ</h2>
+        <p class="stats-subtitle reveal">สถิติข้อมูลทั้งหมดในระบบจัดการห้องเช่า</p>
+        <div class="stats-grid">
+            <div class="stat-card reveal">
+                <div class="stat-icon">👥</div>
+                <div class="stat-value"><?php echo $total_tenants; ?></div>
+                <div class="stat-label">ผู้เช่าทั้งหมด</div>
+            </div>
+            <div class="stat-card reveal">
+                <div class="stat-icon">🚪</div>
+                <div class="stat-value"><?php echo $total_rooms; ?></div>
+                <div class="stat-label">ห้องที่มีผู้เช่า</div>
+            </div>
+            <div class="stat-card reveal">
+                <div class="stat-icon">📄</div>
+                <div class="stat-value"><?php echo $total_contracts; ?></div>
+                <div class="stat-label">สัญญาเช่า</div>
+            </div>
+            <div class="stat-card reveal">
+                <div class="stat-icon">💰</div>
+                <div class="stat-value"><?php echo $total_payments; ?></div>
+                <div class="stat-label">การชำระเงิน</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== USER INFO ===== -->
+<section class="info-section">
+    <div class="info-container">
+        <div class="info-card reveal">
+            <div class="info-card-header">
+                <div class="info-card-avatar"><?php echo htmlspecialchars($initial); ?></div>
+                <div>
+                    <div class="info-card-name"><?php echo htmlspecialchars($fullname); ?></div>
+                    <div class="info-card-role"><?php echo $roleLabel; ?></div>
+                </div>
+            </div>
+            <div class="info-row">
+                <span class="info-row-icon">👤</span>
+                <span class="info-row-label">ชื่อผู้ใช้</span>
+                <span class="info-row-value"><?php echo htmlspecialchars($username); ?></span>
+            </div>
+            <div class="info-row">
+                <span class="info-row-icon">📛</span>
+                <span class="info-row-label">ชื่อ-สกุล</span>
+                <span class="info-row-value"><?php echo htmlspecialchars($fullname); ?></span>
+            </div>
+            <div class="info-row">
+                <span class="info-row-icon">🔑</span>
+                <span class="info-row-label">สิทธิ์การใช้งาน</span>
+                <span class="info-row-value"><?php echo $roleLabel; ?></span>
+            </div>
+            <div class="info-row">
+                <span class="info-row-icon">🕐</span>
+                <span class="info-row-label">เข้าสู่ระบบ</span>
+                <span class="info-row-value"><?php echo date('d/m/Y H:i'); ?> น.</span>
+            </div>
+            <div class="info-actions">
+                <a href="index.php" class="btn-manage">🏠 หน้าจัดการ</a>
+                <a href="logout.php" class="btn-logout">🚪 ออกจากระบบ</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+    © 2026 ระบบจัดการห้องเช่าอพาร์ตเมนต์ — All rights reserved.
+</footer>
+
+<script>
+// ===== Generate Stars =====
+(function() {
+    const starsEl = document.getElementById('stars');
+    for (let i = 0; i < 80; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        const size = Math.random() * 2.5 + 1;
+        star.style.width = size + 'px';
+        star.style.height = size + 'px';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = Math.random() * 3 + 's';
+        star.style.animationDuration = (2 + Math.random() * 3) + 's';
+        starsEl.appendChild(star);
+    }
+})();
+
+// ===== Navbar scroll effect =====
+window.addEventListener('scroll', function() {
+    const navbar = document.getElementById('navbar');
+    if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+    } else {
+        navbar.classList.remove('scrolled');
+    }
+});
+
+// ===== Scroll reveal =====
+const revealEls = document.querySelectorAll('.reveal');
+const revealObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+        }
+    });
+}, { threshold: 0.15 });
+
+revealEls.forEach(function(el) {
+    revealObserver.observe(el);
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,74 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+include("config.php");
+
+echo "<h2>Updating owner table schema...</h2>";
+
+// Add salary column
+$sql1 = "ALTER TABLE owner ADD COLUMN salary DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER email";
+if (mysqli_query($conn, $sql1)) {
+    echo "<p style='color:green;'>✓ Added salary column successfully.</p>";
+} else {
+    if (strpos(mysqli_error($conn), 'Duplicate column') !== false) {
+        echo "<p style='color:orange;'>⚠ salary column already exists.</p>";
+    } else {
+        echo "<p style='color:red;'>✗ Error adding salary: " . mysqli_error($conn) . "</p>";
+    }
+}
+
+// Add benefits column
+$sql2 = "ALTER TABLE owner ADD COLUMN benefits TEXT NOT NULL AFTER salary";
+if (mysqli_query($conn, $sql2)) {
+    echo "<p style='color:green;'>✓ Added benefits column successfully.</p>";
+} else {
+    if (strpos(mysqli_error($conn), 'Duplicate column') !== false) {
+        echo "<p style='color:orange;'>⚠ benefits column already exists.</p>";
+    } else {
+        echo "<p style='color:red;'>✗ Error adding benefits: " . mysqli_error($conn) . "</p>";
+    }
+}
+
+// Add check_in_time column
+$sql3 = "ALTER TABLE owner ADD COLUMN check_in_time TIME NOT NULL AFTER benefits";
+if (mysqli_query($conn, $sql3)) {
+    echo "<p style='color:green;'>✓ Added check_in_time column successfully.</p>";
+} else {
+    if (strpos(mysqli_error($conn), 'Duplicate column') !== false) {
+        echo "<p style='color:orange;'>⚠ check_in_time column already exists.</p>";
+    } else {
+        echo "<p style='color:red;'>✗ Error adding check_in_time: " . mysqli_error($conn) . "</p>";
+    }
+}
+
+// Add check_out_time column
+$sql4 = "ALTER TABLE owner ADD COLUMN check_out_time TIME NOT NULL AFTER check_in_time";
+if (mysqli_query($conn, $sql4)) {
+    echo "<p style='color:green;'>✓ Added check_out_time column successfully.</p>";
+} else {
+    if (strpos(mysqli_error($conn), 'Duplicate column') !== false) {
+        echo "<p style='color:orange;'>⚠ check_out_time column already exists.</p>";
+    } else {
+        echo "<p style='color:red;'>✗ Error adding check_out_time: " . mysqli_error($conn) . "</p>";
+    }
+}
+
+echo "<hr>";
+echo "<p>Schema update completed. <a href='owner.php'>Go to Owner Page</a></p>";
+
+// Show current table structure
+$result = mysqli_query($conn, "DESCRIBE owner");
+echo "<h3>Current owner table structure:</h3>";
+echo "<table border='1' style='border-collapse:collapse; font-family:Tahoma;'>";
+echo "<tr style='background:#66bb6a;color:white;'><th>Field</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th></tr>";
+while ($row = mysqli_fetch_assoc($result)) {
+    echo "<tr>";
+    echo "<td style='padding:8px;'>" . $row['Field'] . "</td>";
+    echo "<td style='padding:8px;'>" . $row['Type'] . "</td>";
+    echo "<td style='padding:8px;'>" . $row['Null'] . "</td>";
+    echo "<td style='padding:8px;'>" . $row['Key'] . "</td>";
+    echo "<td style='padding:8px;'>" . $row['Default'] . "</td>";
+    echo "</tr>";
+}
+echo "</table>";
+?>
